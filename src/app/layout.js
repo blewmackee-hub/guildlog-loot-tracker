@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Solisium Loot Compendium",
+  title: "GuildLog",
   description: "Throne and Liberty gear planner - database, build, wishlist, farm plan, and inheritance cost calculator.",
 };
 

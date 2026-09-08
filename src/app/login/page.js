@@ -14,7 +14,7 @@ export default async function LoginPage() {
     <div className="app">
       <div className="auth-screen">
         <div className="auth-card">
-          <h1>Solisium Loot Compendium</h1>
+          <h1>GuildLog</h1>
           <p className="muted">Sign in with Discord to find or register your guild.</p>
           <form action={loginWithDiscord}>
             <button type="submit" className="btn-discord">Sign in with Discord</button>

@@ -15,6 +15,7 @@ export function slotsForGroup(slotGroup) {
 /* An item's coarse category (weapon/armor/accessory) works the same
    whether it has a concrete slot or only a slotGroup. */
 export function coarseGroupFor(item) {
+  if (item.isSkillCore) return "skillcore";
   if (item.slot) return SLOTS.find((s) => s.id === item.slot)?.group;
   if (item.slotGroup) return SLOTS.find((s) => s.slotGroup === item.slotGroup)?.group;
   return undefined;

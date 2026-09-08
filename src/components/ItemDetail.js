@@ -111,6 +111,8 @@ export default function ItemDetail({ item, wishlist, pendingSlot, onAddToWishlis
               );
             })}
           </ul>
+        ) : item.isSkillCore ? (
+          <p className="muted">Random drop from elite monsters, or from a craftable gamba box — no fixed source to list.</p>
         ) : (
           <p className="muted">No known source yet.</p>
         )}
@@ -173,7 +175,11 @@ export default function ItemDetail({ item, wishlist, pendingSlot, onAddToWishlis
       })()}
 
       {!item.isMaterial && !item.slot && !item.slotGroup && (
-        <p className="muted">This item has no slot mapping yet — can't be added to a build.</p>
+        <p className="muted">
+          {item.isSkillCore
+            ? "Skill Cores aren't equipped to a gear slot — save it to your wishlist below so the guild knows you're after it."
+            : "This item has no slot mapping yet — can't be added to a build."}
+        </p>
       )}
 
       {!item.isMaterial && (

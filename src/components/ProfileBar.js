@@ -8,9 +8,10 @@ import { LogOut } from "lucide-react";
    so switching here just points the active_character cookie at a
    different one of the signed-in user's own characters in the same
    guild - no PIN re-entry needed. "+ New" creates another alt. */
-export default function ProfileBar({ guildName, activeCharacterId, characters, onSwitch, onCreate }) {
+export default function ProfileBar({ guildName, activeCharacterId, characters, onSwitch, onCreate, onLeaveGuild }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
 
   function submit() {
     const trimmed = draft.trim();
@@ -47,6 +48,15 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
         </>
       ) : (
         <button className="btn-secondary" onClick={() => setAdding(true)}>+ New</button>
+      )}
+      {confirmingLeave ? (
+        <>
+          <span className="profile-bar__leave-warning">Leave {guildName}? This deletes your character(s) here.</span>
+          <button className="profile-bar__leave-confirm" onClick={onLeaveGuild}>Leave</button>
+          <button className="btn-secondary" onClick={() => setConfirmingLeave(false)}>Cancel</button>
+        </>
+      ) : (
+        <button className="btn-secondary" onClick={() => setConfirmingLeave(true)}>Leave Guild</button>
       )}
       <button
         className="profile-bar__signout"

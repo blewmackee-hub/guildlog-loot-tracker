@@ -12,7 +12,7 @@ export default function ItemRow({ item, onSelect, selected }) {
       <RarityDot rarity={item.rarity} />
       <span className="item-row__name">{item.name}</span>
       {item.levelRange && <span className="item-row__level">Lv {item.levelRange.max}</span>}
-      <span className="item-row__slot">{item.isMaterial ? "Material" : slotLabel || ""}</span>
+      <span className="item-row__slot">{item.isMaterial ? "Material" : item.isSkillCore ? "Skill Core" : slotLabel || ""}</span>
       <ChevronRight size={15} strokeWidth={1.5} />
     </button>
   );

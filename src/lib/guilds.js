@@ -107,8 +107,68 @@ export async function saveCharacterData({ characterId, discordId, build, wishlis
 }
 
 export async function getGuildById(guildId) {
-  const res = await query(`SELECT id, name FROM guilds WHERE id = $1`, [guildId]);
+  const res = await query(`SELECT id, name, owner_discord_id FROM guilds WHERE id = $1`, [guildId]);
   return res.rows[0] || null;
+}
+
+/* Owner-only roster: one row per Discord account with characters in
+   this guild, each carrying its own character list (so the owner can
+   see who has alts before kicking). */
+export async function listGuildMembers({ guildId }) {
+  const res = await query(
+    `SELECT u.discord_id AS "discordId", u.username,
+            json_agg(json_build_object('id', c.id, 'name', c.name) ORDER BY c.name) AS characters
+     FROM characters c
+     JOIN users u ON u.discord_id = c.discord_id
+     WHERE c.guild_id = $1
+     GROUP BY u.discord_id, u.username
+     ORDER BY u.username`,
+    [guildId]
+  );
+  return res.rows;
+}
+
+/* Owner-initiated removal, e.g. someone kicked from the guild
+   in-game: deletes every character the TARGET has in this guild.
+   Re-checks ownership server-side (never trust a client-asserted
+   "I'm the owner") and refuses to let the owner kick themselves this
+   way - that's what leaveGuild is for, so there's exactly one code
+   path that empties a guild owner's own characters. */
+export async function kickMember({ guildId, targetDiscordId, requesterDiscordId }) {
+  const guild = await getGuildById(guildId);
+  if (!guild) throw new HttpError(404, "Guild not found.");
+  if (guild.owner_discord_id !== requesterDiscordId) {
+    throw new HttpError(403, "Only the guild owner can remove members.");
+  }
+  if (targetDiscordId === requesterDiscordId) {
+    throw new HttpError(400, "Use \"Leave Guild\" to remove your own characters.");
+  }
+  await query(`DELETE FROM characters WHERE discord_id = $1 AND guild_id = $2`, [targetDiscordId, guildId]);
+}
+
+/* Deletes the guild itself (not just one member's characters) - the
+   whole point being to fix "there's no way to get rid of a guild
+   once it's created". CASCADE on characters.guild_id and
+   guild_pin_attempts.guild_id (db/schema.sql) takes every member's
+   characters and PIN-attempt history with it in one statement. */
+export async function deleteGuild({ guildId, requesterDiscordId }) {
+  const guild = await getGuildById(guildId);
+  if (!guild) throw new HttpError(404, "Guild not found.");
+  if (guild.owner_discord_id !== requesterDiscordId) {
+    throw new HttpError(403, "Only the guild owner can delete this guild.");
+  }
+  await query(`DELETE FROM guilds WHERE id = $1`, [guildId]);
+}
+
+/* "Leave guild" for someone who left it in-game: deletes ALL of the
+   signed-in user's characters in this guild (every alt, not just the
+   active one) - PIN access isn't real membership (anyone with the
+   PIN can rejoin any time), so the meaningful thing to revoke is
+   their own build/wishlist data living under this guild, not access
+   to it. discordId is part of the WHERE clause, same pattern as
+   saveCharacterData, so this can never touch another member's rows. */
+export async function leaveGuild({ discordId, guildId }) {
+  await query(`DELETE FROM characters WHERE discord_id = $1 AND guild_id = $2`, [discordId, guildId]);
 }
 
 /* Shared by GET /api/character, POST /api/character (new alt), and
@@ -123,10 +183,13 @@ export async function getCharacterContext({ discordId, characterId }) {
   );
   const character = res.rows[0];
   if (!character) return null;
-  const [guild, characters] = await Promise.all([
+  const [guildRow, characters] = await Promise.all([
     getGuildById(character.guild_id),
     listCharacters({ discordId, guildId: character.guild_id }),
   ]);
+  // isOwner, not the raw owner_discord_id, is what the client gets -
+  // no reason to expose another account's id to every guildmate.
+  const guild = guildRow && { id: guildRow.id, name: guildRow.name, isOwner: guildRow.owner_discord_id === discordId };
   return { character, guild, characters };
 }
 

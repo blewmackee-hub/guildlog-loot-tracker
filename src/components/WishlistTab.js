@@ -22,11 +22,13 @@ export default function WishlistTab({ savedItems, wishlist, onEquip, onRemove, o
 
   const groups = {};
   entries.forEach(({ item, entry }) => {
-    const groupKey = item.slot || item.slotGroup || "unassigned";
+    const groupKey = item.slot || item.slotGroup || (item.isSkillCore ? "skillcore" : "unassigned");
     const groupLabel = item.slot
       ? SLOTS.find((s) => s.id === item.slot)?.label
       : item.slotGroup
       ? slotsForGroup(item.slotGroup)[0]?.label
+      : item.isSkillCore
+      ? "Skill Cores"
       : "Unassigned";
     if (!groups[groupKey]) groups[groupKey] = { label: groupLabel, items: [] };
     groups[groupKey].items.push({ item, entry });

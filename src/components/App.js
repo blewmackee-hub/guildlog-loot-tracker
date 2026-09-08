@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Sword, X, Search } from "lucide-react";
+import Link from "next/link";
+import { X, Search } from "lucide-react";
 import ItemRow from "./ItemRow";
 import ItemDetail from "./ItemDetail";
 import Paperdoll from "./Paperdoll";
@@ -11,6 +12,7 @@ import WishlistTab from "./WishlistTab";
 import FarmPlan from "./FarmPlan";
 import InheritanceTab from "./InheritanceTab";
 import ProfileBar from "./ProfileBar";
+import GuildMembers from "./GuildMembers";
 import { ITEMS, coarseGroupFor } from "@/lib/calculations";
 
 export default function App() {
@@ -25,6 +27,7 @@ export default function App() {
 
   const [character, setCharacter] = useState(null);
   const [guildName, setGuildName] = useState(null);
+  const [isGuildOwner, setIsGuildOwner] = useState(false);
   const [characters, setCharacters] = useState([]);
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -34,6 +37,7 @@ export default function App() {
   function applyContext(ctx) {
     setCharacter(ctx.character);
     setGuildName(ctx.guild?.name ?? null);
+    setIsGuildOwner(ctx.guild?.isOwner ?? false);
     setCharacters(ctx.characters ?? []);
     setWishlist(ctx.character.build ?? {});
     setSavedItems(ctx.character.wishlist ?? {});
@@ -105,6 +109,18 @@ export default function App() {
     setDataLoaded(true);
   }
 
+  async function leaveGuild() {
+    setDataLoaded(false);
+    await fetch("/api/character/leave", { method: "POST" });
+    router.push("/guild");
+  }
+
+  async function deleteGuild() {
+    setDataLoaded(false);
+    await fetch("/api/guild/delete", { method: "POST" });
+    router.push("/guild");
+  }
+
   const itemList = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return Object.values(ITEMS)
@@ -169,10 +185,15 @@ export default function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <div className="app__title">
-          <Sword size={20} strokeWidth={1.5} />
-          <span>Solisium Loot Compendium</span>
-        </div>
+        <Link href="/" className="brand-lockup">
+          <div className="brand-lockup__crest">
+            <div className="brand-lockup__crest-gem" />
+          </div>
+          <div className="brand-lockup__text">
+            <span className="brand-lockup__word">GUILDLOG</span>
+            <span className="brand-lockup__subline">Loot Tracker</span>
+          </div>
+        </Link>
         <nav className="tabs">
           {[
             { id: "database", label: "Database" },
@@ -180,6 +201,7 @@ export default function App() {
             { id: "wishlist", label: "Wishlist" },
             { id: "plan", label: "Farm Plan" },
             { id: "inheritance", label: "Inheritance" },
+            ...(isGuildOwner ? [{ id: "members", label: "Members" }] : []),
           ].map((t) => (
             <button key={t.id} className={`tab ${tab === t.id ? "tab--active" : ""}`} onClick={() => setTab(t.id)}>
               {t.label}
@@ -192,6 +214,7 @@ export default function App() {
           characters={characters}
           onSwitch={switchCharacter}
           onCreate={createCharacter}
+          onLeaveGuild={leaveGuild}
         />
       </header>
 
@@ -221,9 +244,15 @@ export default function App() {
               )}
             </div>
             <div className="filter-row">
-              {["all", "weapon", "armor", "accessory"].map((g) => (
-                <button key={g} className={`chip ${filterGroup === g ? "chip--active" : ""}`} onClick={() => setFilterGroup(g)}>
-                  {g === "all" ? "All" : g[0].toUpperCase() + g.slice(1)}
+              {[
+                { id: "all", label: "All" },
+                { id: "weapon", label: "Weapon" },
+                { id: "armor", label: "Armor" },
+                { id: "accessory", label: "Accessory" },
+                { id: "skillcore", label: "Skill Core" },
+              ].map((g) => (
+                <button key={g.id} className={`chip ${filterGroup === g.id ? "chip--active" : ""}`} onClick={() => setFilterGroup(g.id)}>
+                  {g.label}
                 </button>
               ))}
             </div>
@@ -280,6 +309,12 @@ export default function App() {
       {tab === "inheritance" && (
         <div className="layout">
           <InheritanceTab wishlist={wishlist} />
+        </div>
+      )}
+
+      {tab === "members" && isGuildOwner && (
+        <div className="layout">
+          <GuildMembers guildName={guildName} onDeleteGuild={deleteGuild} />
         </div>
       )}
     </div>
