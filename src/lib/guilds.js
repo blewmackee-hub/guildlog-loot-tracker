@@ -113,15 +113,18 @@ export async function getGuildById(guildId) {
 
 /* Owner-only roster: one row per Discord account with characters in
    this guild, each carrying its own character list (so the owner can
-   see who has alts before kicking). */
+   see who has alts before kicking) and whether they're the current
+   owner (to badge them and hide the pointless "promote" action). */
 export async function listGuildMembers({ guildId }) {
   const res = await query(
     `SELECT u.discord_id AS "discordId", u.username,
+            (u.discord_id = g.owner_discord_id) AS "isOwner",
             json_agg(json_build_object('id', c.id, 'name', c.name) ORDER BY c.name) AS characters
      FROM characters c
      JOIN users u ON u.discord_id = c.discord_id
+     JOIN guilds g ON g.id = $1
      WHERE c.guild_id = $1
-     GROUP BY u.discord_id, u.username
+     GROUP BY u.discord_id, u.username, g.owner_discord_id
      ORDER BY u.username`,
     [guildId]
   );
@@ -144,6 +147,30 @@ export async function kickMember({ guildId, targetDiscordId, requesterDiscordId 
     throw new HttpError(400, "Use \"Leave Guild\" to remove your own characters.");
   }
   await query(`DELETE FROM characters WHERE discord_id = $1 AND guild_id = $2`, [targetDiscordId, guildId]);
+}
+
+/* Hands the guild off to another member, e.g. the owner is leaving
+   or wants to pass leadership along. The target must already have a
+   character in this guild - ownership can't be handed to someone who
+   isn't a member. Re-checks the requester is the CURRENT owner (never
+   trusts a client claim), same pattern as kickMember/deleteGuild. */
+export async function transferOwnership({ guildId, newOwnerDiscordId, requesterDiscordId }) {
+  const guild = await getGuildById(guildId);
+  if (!guild) throw new HttpError(404, "Guild not found.");
+  if (guild.owner_discord_id !== requesterDiscordId) {
+    throw new HttpError(403, "Only the guild owner can transfer ownership.");
+  }
+  if (newOwnerDiscordId === requesterDiscordId) {
+    throw new HttpError(400, "You're already the owner.");
+  }
+  const member = await query(
+    `SELECT 1 FROM characters WHERE discord_id = $1 AND guild_id = $2 LIMIT 1`,
+    [newOwnerDiscordId, guildId]
+  );
+  if (member.rows.length === 0) {
+    throw new HttpError(404, "That person doesn't have a character in this guild.");
+  }
+  await query(`UPDATE guilds SET owner_discord_id = $1 WHERE id = $2`, [newOwnerDiscordId, guildId]);
 }
 
 /* Deletes the guild itself (not just one member's characters) - the

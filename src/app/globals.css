@@ -330,8 +330,19 @@ html, body {
   margin-bottom: 8px;
 }
 .guild-member-row__info { display: flex; flex-direction: column; gap: 3px; }
-.guild-member-row__name { font-size: 13.5px; color: var(--bone); font-weight: 500; }
-.guild-member-row__kick {
+.guild-member-row__name { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--bone); font-weight: 500; }
+.guild-member-row__owner-badge {
+  background: var(--bronze);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+.guild-member-row__actions { display: flex; gap: 6px; flex-shrink: 0; }
+.guild-member-row__kick, .guild-member-row__promote {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -344,6 +355,7 @@ html, body {
   flex-shrink: 0;
 }
 .guild-member-row__kick:hover { color: #c96f6f; border-color: #c96f6f; }
+.guild-member-row__promote:hover { color: var(--bronze); border-color: var(--bronze); }
 .guild-member-row__confirm { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 .danger-zone {

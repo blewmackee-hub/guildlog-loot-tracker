@@ -121,6 +121,18 @@ export default function App() {
     router.push("/guild");
   }
 
+  // After GuildMembers hands ownership to someone else, this account
+  // no longer owns the guild - refetch so isGuildOwner flips off, and
+  // bail out of the (now inaccessible) Members tab if that's where
+  // they were standing.
+  async function refreshAfterOwnerChange() {
+    const res = await fetch("/api/character");
+    const data = await res.json();
+    if (!data.character) return;
+    applyContext(data);
+    if (!data.guild?.isOwner) setTab((t) => (t === "members" ? "database" : t));
+  }
+
   const itemList = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return Object.values(ITEMS)
@@ -314,7 +326,7 @@ export default function App() {
 
       {tab === "members" && isGuildOwner && (
         <div className="layout">
-          <GuildMembers guildName={guildName} onDeleteGuild={deleteGuild} />
+          <GuildMembers guildName={guildName} onDeleteGuild={deleteGuild} onOwnerChanged={refreshAfterOwnerChange} />
         </div>
       )}
     </div>
