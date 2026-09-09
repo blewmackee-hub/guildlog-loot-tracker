@@ -236,6 +236,53 @@ export async function getGuildWishlistTally({ guildId }) {
   return tally;
 }
 
+/* --- site-admin moderation (see /lib/admin.js) ---------------------------
+   These bypass the owner check entirely - callers MUST have already
+   verified isAdmin(session.user.discordId) themselves. Kept separate
+   from the owner-scoped functions above rather than adding an
+   isAdminOverride flag to them, so an admin code path can never be
+   reached by accident through the normal owner-only routes. */
+
+/* Every guild with its owner's username and how many characters are
+   in it, newest first, optionally filtered by name - the moderation
+   list view. No PIN/hash exposed. */
+export async function adminListGuilds({ q } = {}) {
+  const searchText = (q || "").trim();
+  const res = await query(
+    `SELECT g.id, g.name, g.created_at, g.owner_discord_id AS "ownerDiscordId", u.username AS "ownerUsername",
+            count(c.id)::int AS "characterCount"
+     FROM guilds g
+     JOIN users u ON u.discord_id = g.owner_discord_id
+     LEFT JOIN characters c ON c.guild_id = g.id
+     WHERE $1 = '' OR g.name ILIKE '%' || $1 || '%'
+     GROUP BY g.id, g.name, g.created_at, g.owner_discord_id, u.username
+     ORDER BY g.created_at DESC
+     LIMIT 100`,
+    [searchText]
+  );
+  return res.rows;
+}
+
+export async function adminRenameGuild({ guildId, name }) {
+  const trimmedName = (name || "").trim();
+  if (trimmedName.length < 2) throw new HttpError(400, "Guild name must be at least 2 characters.");
+  try {
+    const res = await query(`UPDATE guilds SET name = $1 WHERE id = $2 RETURNING id, name`, [trimmedName, guildId]);
+    if (res.rows.length === 0) throw new HttpError(404, "Guild not found.");
+    return res.rows[0];
+  } catch (e) {
+    if (e.code === "23505") {
+      throw new HttpError(409, `A guild named "${trimmedName}" already exists.`);
+    }
+    throw e;
+  }
+}
+
+export async function adminDeleteGuild({ guildId }) {
+  const res = await query(`DELETE FROM guilds WHERE id = $1 RETURNING id`, [guildId]);
+  if (res.rows.length === 0) throw new HttpError(404, "Guild not found.");
+}
+
 export class HttpError extends Error {
   constructor(status, message) {
     super(message);

@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { LogOut } from "lucide-react";
+import { LogOut, ShieldAlert } from "lucide-react";
 
 /* Characters are scoped to a guild + Discord account (src/lib/guilds.js),
    so switching here just points the active_character cookie at a
    different one of the signed-in user's own characters in the same
-   guild - no PIN re-entry needed. "+ New" creates another alt. */
-export default function ProfileBar({ guildName, activeCharacterId, characters, onSwitch, onCreate, onLeaveGuild }) {
+   guild - no PIN re-entry needed. "+ New" creates another alt.
+   isSiteAdmin (from GET /api/character, see src/lib/admin.js) just
+   decides whether the /admin link shows here - the route itself
+   re-checks admin status server-side regardless. */
+export default function ProfileBar({ guildName, activeCharacterId, characters, onSwitch, onCreate, onLeaveGuild, isSiteAdmin }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [confirmingLeave, setConfirmingLeave] = useState(false);
@@ -62,6 +66,11 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
         </>
       ) : (
         <button className="btn-secondary btn-secondary--sm" onClick={() => setConfirmingLeave(true)}>Leave Guild</button>
+      )}
+      {isSiteAdmin && (
+        <Link href="/admin" className="profile-bar__signout" title="Guild moderation">
+          <ShieldAlert size={15} strokeWidth={1.5} />
+        </Link>
       )}
       <button
         className="profile-bar__signout"

@@ -30,6 +30,7 @@ export default function App() {
   const [isGuildOwner, setIsGuildOwner] = useState(false);
   const [characters, setCharacters] = useState([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [isSiteAdmin, setIsSiteAdmin] = useState(false);
 
   // characters.build (paperdoll slot->item map) and characters.wishlist
   // (saved-for-later items) are the DB column names from db/schema.sql -
@@ -41,6 +42,7 @@ export default function App() {
     setCharacters(ctx.characters ?? []);
     setWishlist(ctx.character.build ?? {});
     setSavedItems(ctx.character.wishlist ?? {});
+    setIsSiteAdmin(ctx.isSiteAdmin ?? false);
   }
 
   // Load the active character once on mount. page.js already redirects
@@ -214,6 +216,7 @@ export default function App() {
             onSwitch={switchCharacter}
             onCreate={createCharacter}
             onLeaveGuild={leaveGuild}
+            isSiteAdmin={isSiteAdmin}
           />
         </div>
         <nav className="tabs">

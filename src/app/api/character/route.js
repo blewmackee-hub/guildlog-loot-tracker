@@ -2,21 +2,25 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getActiveCharacter, setActiveCharacter } from "@/lib/guildSession";
 import { saveCharacterData, getOrCreateCharacter, getCharacterContext } from "@/lib/guilds";
+import { isAdmin } from "@/lib/admin";
 
 // GET /api/character - the signed-in user's currently active
 // character (per the active_character cookie set by /join or
 // /switch), plus its sibling characters in the same guild (for the
-// "Playing as" switcher) and the guild's own name.
+// "Playing as" switcher) and the guild's own name. isSiteAdmin just
+// tells the client whether to show the /admin link - the route
+// itself re-checks isAdmin server-side regardless.
 export async function GET() {
   const session = await auth();
   if (!session?.user?.discordId) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
+  const isSiteAdmin = isAdmin(session.user.discordId);
   const active = await getActiveCharacter();
-  if (!active) return NextResponse.json({ character: null, guild: null, characters: [] });
+  if (!active) return NextResponse.json({ character: null, guild: null, characters: [], isSiteAdmin });
 
   const ctx = await getCharacterContext({ discordId: session.user.discordId, characterId: active.characterId });
-  return NextResponse.json(ctx ?? { character: null, guild: null, characters: [] });
+  return NextResponse.json(ctx ? { ...ctx, isSiteAdmin } : { character: null, guild: null, characters: [], isSiteAdmin });
 }
 
 // POST /api/character { name } - create a new alt character in the

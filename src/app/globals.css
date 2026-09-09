@@ -1248,6 +1248,11 @@ input[type="range"]::-moz-range-thumb {
 /* ---- inheritance ------------------------------------------------------- */
 .inheritance-tab { max-width: 760px; }
 
+/* ---- admin --------------------------------------------------------------- */
+.admin-panel { max-width: 760px; }
+.admin-panel__topbar { display: flex; justify-content: flex-end; margin-bottom: 12px; max-width: 760px; }
+.admin-panel .search-row { margin-top: 14px; }
+
 /* ---- help ---------------------------------------------------------------- */
 .help-panel { max-width: 640px; }
 .help-panel p {
