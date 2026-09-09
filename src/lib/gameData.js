@@ -90,8 +90,12 @@ export const STAT_GROUPS = [
   },
   {
     label: "Resources",
-    keys: ["maxHealth", "healthRegen", "maxMana", "manaRegen", "manaCostEfficiencyPct"],
-    labels: { maxHealth: "Max Health", healthRegen: "Health Regen", maxMana: "Max Mana", manaRegen: "Mana Regen", manaCostEfficiencyPct: "Mana Cost Efficiency" },
+    keys: ["maxHealth", "healthRegen", "maxMana", "manaRegen", "manaCostEfficiencyPct", "raw_shield_modifier"],
+    labels: {
+      maxHealth: "Max Health", healthRegen: "Health Regen", maxMana: "Max Mana", manaRegen: "Mana Regen",
+      manaCostEfficiencyPct: "Mana Cost Efficiency", raw_shield_modifier: "Shield Health",
+    },
+    units: { raw_shield_modifier: "%" },
   },
   {
     label: "Movement",
@@ -108,12 +112,16 @@ export const STAT_GROUPS = [
   },
   {
     label: "Resistance",
-    keys: ["weakenResist", "stunResist", "petrificationResist", "sleepResist", "silenceResist", "fearResist", "bindResist", "collisionResist", "skillDamageResistPct"],
+    keys: ["weakenResist", "stunResist", "petrificationResist", "sleepResist", "silenceResist", "fearResist", "bindResist", "collisionResist", "skillDamageResistPct", "raw_all_state_tolerance"],
     labels: {
       weakenResist: "Weaken Resistance", stunResist: "Stun Resistance", petrificationResist: "Petrification Resistance",
       sleepResist: "Sleep Resistance", silenceResist: "Silence Resistance", fearResist: "Fear Resistance",
       bindResist: "Bind Resistance", collisionResist: "Collision Resistance", skillDamageResistPct: "Skill Damage Resistance",
+      raw_all_state_tolerance: "CC Resistance",
     },
+    // despite the Pct-suffixed key (matching the game's raw field name),
+    // this is a flat number, not a percentage - override unitFor's default.
+    units: { skillDamageResistPct: "" },
   },
   {
     label: "Crowd Control",
@@ -165,7 +173,7 @@ export const STAT_GROUPS = [
 export const STAT_LABELS = STAT_GROUPS.reduce((acc, g) => ({ ...acc, ...g.labels }), {});
 export const STAT_UNITS = STAT_GROUPS.reduce((acc, g) => ({ ...acc, ...(g.units || {}) }), {});
 export function unitFor(key) {
-  if (STAT_UNITS[key]) return STAT_UNITS[key];
+  if (key in STAT_UNITS) return STAT_UNITS[key];
   if (key.endsWith("Pct")) return "%";
   return "";
 }

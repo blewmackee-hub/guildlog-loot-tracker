@@ -144,7 +144,7 @@ export default function GuildChooser({ discordName }) {
                 <input
                   className="guild-form__input"
                   type="text"
-                  placeholder="Character name (e.g. your main's name)"
+                  placeholder="Character name"
                   value={characterName}
                   onChange={(e) => setCharacterName(e.target.value)}
                 />
@@ -182,7 +182,7 @@ export default function GuildChooser({ discordName }) {
             <input
               className="guild-form__input"
               type="text"
-              placeholder="Character name (e.g. your main's name)"
+              placeholder="Character name"
               value={newCharacterName}
               onChange={(e) => setNewCharacterName(e.target.value)}
             />

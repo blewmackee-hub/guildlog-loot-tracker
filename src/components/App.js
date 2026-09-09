@@ -197,15 +197,25 @@ export default function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <Link href="/" className="brand-lockup">
-          <div className="brand-lockup__crest">
-            <div className="brand-lockup__crest-gem" />
-          </div>
-          <div className="brand-lockup__text">
-            <span className="brand-lockup__word">GUILDLOG</span>
-            <span className="brand-lockup__subline">Loot Tracker</span>
-          </div>
-        </Link>
+        <div className="app__header-top">
+          <Link href="/" className="brand-lockup">
+            <div className="brand-lockup__crest">
+              <div className="brand-lockup__crest-gem" />
+            </div>
+            <div className="brand-lockup__text">
+              <span className="brand-lockup__word">GUILDLOG</span>
+              <span className="brand-lockup__subline">Loot Tracker</span>
+            </div>
+          </Link>
+          <ProfileBar
+            guildName={guildName}
+            activeCharacterId={character.id}
+            characters={characters}
+            onSwitch={switchCharacter}
+            onCreate={createCharacter}
+            onLeaveGuild={leaveGuild}
+          />
+        </div>
         <nav className="tabs">
           {[
             { id: "database", label: "Database" },
@@ -214,20 +224,13 @@ export default function App() {
             { id: "plan", label: "Farm Plan" },
             { id: "inheritance", label: "Inheritance" },
             ...(isGuildOwner ? [{ id: "members", label: "Members" }] : []),
+            { id: "help", label: "Help" },
           ].map((t) => (
-            <button key={t.id} className={`tab ${tab === t.id ? "tab--active" : ""}`} onClick={() => setTab(t.id)}>
+            <button key={t.id} className={`tab tab--${t.id} ${tab === t.id ? "tab--active" : ""}`} onClick={() => setTab(t.id)}>
               {t.label}
             </button>
           ))}
         </nav>
-        <ProfileBar
-          guildName={guildName}
-          activeCharacterId={character.id}
-          characters={characters}
-          onSwitch={switchCharacter}
-          onCreate={createCharacter}
-          onLeaveGuild={leaveGuild}
-        />
       </header>
 
       {pendingSlot && tab === "database" && (
@@ -292,7 +295,7 @@ export default function App() {
       {tab === "build" && (
         <div className="layout layout--split">
           <div className="panel">
-            <h3 className="panel-title">Paperdoll</h3>
+            <h3 className="panel-title">{character.name}</h3>
             <Paperdoll wishlist={wishlist} onRemove={removeFromSlot} onSlotClick={handleSlotClick} onLevelChange={updateLevel} />
           </div>
           <div className="layout-divider" />
@@ -316,7 +319,7 @@ export default function App() {
 
       {tab === "plan" && (
         <div className="layout">
-          <FarmPlan wishlist={wishlist} />
+          <FarmPlan savedItems={savedItems} />
         </div>
       )}
 
@@ -329,6 +332,36 @@ export default function App() {
       {tab === "members" && isGuildOwner && (
         <div className="layout">
           <GuildMembers guildName={guildName} onDeleteGuild={deleteGuild} onOwnerChanged={refreshAfterOwnerChange} />
+        </div>
+      )}
+
+      {tab === "help" && (
+        <div className="layout">
+          <div className="panel help-panel">
+            <h3 className="panel-title">Welcome to GuildLog</h3>
+            <p>
+              GuildLog is your guild&apos;s shared loot planner — a home base for figuring out what to chase next and
+              getting there together.
+            </p>
+            <p>
+              Browse the <strong>Database</strong> to see every tracked item&apos;s stats, rarity, and where it drops.
+              Save pieces you don&apos;t have yet to your <strong>Wishlist</strong> to compare options side-by-side, or
+              slot a piece straight into your <strong>Build</strong> to model your character&apos;s current or
+              prospective gear across every slot.
+            </p>
+            <p>
+              Once something&apos;s equipped, drag its level slider in the Build tab — the <strong>Inheritance</strong>{" "}
+              tab will show the estimated ore cost to carry that piece up to its max level.
+            </p>
+            <p>
+              <strong>Farm Plan</strong> turns your Wishlist into an action list: which bosses, dungeons, or vendors
+              to hit, and roughly how many people each fight needs.
+            </p>
+            <p>
+              If you&apos;re the guild owner, the <strong>Members</strong> tab lets you manage your roster or pass
+              leadership along to someone else entirely.
+            </p>
+          </div>
         </div>
       )}
     </div>

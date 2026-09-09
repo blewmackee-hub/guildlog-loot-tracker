@@ -22,11 +22,11 @@ export function coarseGroupFor(item) {
 }
 
 export function resolveStatValue(entry, level, levelRange) {
-  if (typeof entry === "number") return entry;
-  if (!levelRange) return entry.base;
+  if (typeof entry === "number") return Math.round(entry);
+  if (!levelRange) return Math.round(entry.base);
   const lvl = level ?? levelRange.max;
   const raw = entry.base + entry.perLevel * (lvl - levelRange.min);
-  return Math.round(raw * 10) / 10;
+  return Math.round(raw);
 }
 
 /* Fitted from nine real (from, to, cost) examples across weapon,
@@ -45,8 +45,7 @@ export function estimateInheritCost(fromLevel, toLevel) {
   return total;
 }
 
-export function resolveFarmPlan(wishlist) {
-  const wishItemIds = Object.values(wishlist).filter(Boolean).map((e) => e.itemId);
+export function resolveFarmPlan(itemIds) {
   const farmBySource = {};
   const craftChain = [];
   const seenMaterials = new Set();
@@ -55,7 +54,7 @@ export function resolveFarmPlan(wishlist) {
     if (!item || !item.sources || item.sources.length === 0) return;
     item.sources.forEach(({ sourceId, rate }) => {
       if (!farmBySource[sourceId]) farmBySource[sourceId] = [];
-      farmBySource[sourceId].push({ name: item.name, rate });
+      farmBySource[sourceId].push({ itemId: item.id, name: item.name, rate });
     });
   }
 
@@ -82,7 +81,7 @@ export function resolveFarmPlan(wishlist) {
     }
   }
 
-  wishItemIds.forEach(resolveItem);
+  itemIds.forEach(resolveItem);
   return { farmBySource, craftChain };
 }
 

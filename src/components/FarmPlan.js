@@ -1,19 +1,38 @@
 "use client";
 
-import { useMemo } from "react";
-import { Hammer, Info } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Hammer, Info, Users } from "lucide-react";
 import { SOURCE_ICON } from "@/lib/gameData";
 import { SOURCES, resolveFarmPlan } from "@/lib/calculations";
 
-export default function FarmPlan({ wishlist }) {
-  const { farmBySource, craftChain } = useMemo(() => resolveFarmPlan(wishlist), [wishlist]);
+export default function FarmPlan({ savedItems }) {
+  const itemIds = useMemo(() => Object.keys(savedItems), [savedItems]);
+  const { farmBySource, craftChain } = useMemo(() => resolveFarmPlan(itemIds), [itemIds]);
   const sourceIds = Object.keys(farmBySource);
+
+  // Aggregate counts only ("14 wishlisted") - never whose wishlist an
+  // item came from, so this can't leak another member's crafting
+  // recipe list (see getGuildWishlistTally). Best-effort: if it fails
+  // to load, the badges just don't show.
+  const [tally, setTally] = useState({});
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/guild/wishlist-tally")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setTally(data.tally || {});
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [itemIds]);
 
   if (sourceIds.length === 0 && craftChain.length === 0) {
     return (
       <div className="detail-empty">
         <Info size={22} strokeWidth={1.3} />
-        <p>Your build is empty — add gear to generate a farm and craft plan.</p>
+        <p>Your wishlist is empty — save items to it to generate a farm and craft plan.</p>
       </div>
     );
   }
@@ -40,7 +59,15 @@ export default function FarmPlan({ wishlist }) {
                 {needed.map((n, i) => (
                   <li key={i}>
                     <span>{n.name}</span>
-                    <span className="rate">{n.rate}</span>
+                    <span className="farm-card__meta">
+                      {tally[n.itemId] > 0 && (
+                        <span className="wishlist-tally" title="Guildmates with this on their wishlist">
+                          <Users size={11} strokeWidth={2} />
+                          {tally[n.itemId]} wishlisted
+                        </span>
+                      )}
+                      <span className="rate">{n.rate}</span>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -51,7 +78,7 @@ export default function FarmPlan({ wishlist }) {
 
       <div className="farm-plan__col">
         <h3>Crafting Queue</h3>
-        {craftChain.length === 0 && <p className="muted">Nothing in your build is craftable.</p>}
+        {craftChain.length === 0 && <p className="muted">Nothing in your wishlist is craftable.</p>}
         {craftChain.map(({ item, recipe }) => (
           <div className="farm-card" key={item.id}>
             <div className="farm-card__header">

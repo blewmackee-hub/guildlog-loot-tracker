@@ -23,7 +23,12 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
 
   return (
     <div className="profile-bar">
-      {guildName && <span className="profile-bar__label">{guildName} ·</span>}
+      {guildName && (
+        <span className="profile-bar__guild">
+          <div className="live-dot" title="Online" />
+          <span className="profile-bar__label">{guildName} ·</span>
+        </span>
+      )}
       <span className="profile-bar__label">Playing as</span>
       <select className="profile-bar__select" value={activeCharacterId} onChange={(e) => onSwitch(e.target.value)}>
         {characters.map((c) => (
@@ -43,20 +48,20 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
               if (e.key === "Escape") setAdding(false);
             }}
           />
-          <button className="btn-secondary" onClick={submit}>Add</button>
-          <button className="btn-secondary" onClick={() => setAdding(false)}>Cancel</button>
+          <button className="btn-secondary btn-secondary--sm" onClick={submit}>Add</button>
+          <button className="btn-secondary btn-secondary--sm" onClick={() => setAdding(false)}>Cancel</button>
         </>
       ) : (
-        <button className="btn-secondary" onClick={() => setAdding(true)}>+ New</button>
+        <button className="btn-secondary btn-secondary--sm" onClick={() => setAdding(true)}>+ New</button>
       )}
       {confirmingLeave ? (
         <>
           <span className="profile-bar__leave-warning">Leave {guildName}? This deletes your character(s) here.</span>
           <button className="profile-bar__leave-confirm" onClick={onLeaveGuild}>Leave</button>
-          <button className="btn-secondary" onClick={() => setConfirmingLeave(false)}>Cancel</button>
+          <button className="btn-secondary btn-secondary--sm" onClick={() => setConfirmingLeave(false)}>Cancel</button>
         </>
       ) : (
-        <button className="btn-secondary" onClick={() => setConfirmingLeave(true)}>Leave Guild</button>
+        <button className="btn-secondary btn-secondary--sm" onClick={() => setConfirmingLeave(true)}>Leave Guild</button>
       )}
       <button
         className="profile-bar__signout"

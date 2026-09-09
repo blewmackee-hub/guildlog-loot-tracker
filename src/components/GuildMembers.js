@@ -121,7 +121,7 @@ export default function GuildMembers({ guildName, onDeleteGuild, onOwnerChanged 
       ))}
 
       <div className="danger-zone">
-        <h4>Danger Zone</h4>
+        <h4>Clicking this will erase all guild data, proceed with caution</h4>
         {!confirmingDelete ? (
           <button className="btn-secondary btn-secondary--danger" onClick={() => setConfirmingDelete(true)}>
             Delete Guild

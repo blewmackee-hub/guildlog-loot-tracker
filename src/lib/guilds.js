@@ -220,6 +220,22 @@ export async function getCharacterContext({ discordId, characterId }) {
   return { character, guild, characters };
 }
 
+/* Aggregate-only view for the Farm Plan tab: how many characters in
+   this guild have each item wishlisted ("14 wishlisted"), without
+   exposing whose wishlist it is or any individual's crafting recipe
+   list - crafting materials are personal and untradable, so only the
+   counts are shared, never the underlying per-character rows. */
+export async function getGuildWishlistTally({ guildId }) {
+  const res = await query(`SELECT wishlist FROM characters WHERE guild_id = $1`, [guildId]);
+  const tally = {};
+  for (const row of res.rows) {
+    for (const itemId of Object.keys(row.wishlist || {})) {
+      tally[itemId] = (tally[itemId] || 0) + 1;
+    }
+  }
+  return tally;
+}
+
 export class HttpError extends Error {
   constructor(status, message) {
     super(message);
