@@ -95,16 +95,18 @@ export default function GuildChooser({ discordName }) {
   return (
     <div className="auth-screen">
       <div className="auth-card auth-card--wide">
-        <h1>Welcome, {discordName}</h1>
-        <p className="muted">Find your guild, or register a new one.</p>
+        <div className="guild-chooser__intro">
+          <h1>Welcome, {discordName}</h1>
+          <p className="muted">Find your guild, or register a new one.</p>
 
-        <div className="tabs guild-mode-tabs">
-          <button className={`tab ${mode === "find" ? "tab--active" : ""}`} onClick={() => { setMode("find"); setError(null); }}>
-            Find my guild
-          </button>
-          <button className={`tab ${mode === "register" ? "tab--active" : ""}`} onClick={() => { setMode("register"); setError(null); }}>
-            Register a guild
-          </button>
+          <div className="tabs guild-mode-tabs">
+            <button className={`tab ${mode === "find" ? "tab--active" : ""}`} onClick={() => { setMode("find"); setError(null); }}>
+              Find my guild
+            </button>
+            <button className={`tab ${mode === "register" ? "tab--active" : ""}`} onClick={() => { setMode("register"); setError(null); }}>
+              Register a guild
+            </button>
+          </div>
         </div>
 
         {error && <p className="auth-error">{error}</p>}

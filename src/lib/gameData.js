@@ -28,11 +28,11 @@ export const SLOTS = [
 ];
 
 export const RARITIES = {
-  common: { label: "Common", color: "#8b8f8a" },
-  uncommon: { label: "Uncommon", color: "#6f9d6a" },
-  rare: { label: "Rare", color: "#5b8fae" },
-  epic: { label: "Epic", color: "#a374c9" },
-  legendary: { label: "Legendary", color: "#c9974e" },
+  common: { label: "Common", color: "#8A8F98" },
+  uncommon: { label: "Uncommon", color: "#5FB77E" },
+  rare: { label: "Rare", color: "#4FA3E3" },
+  epic: { label: "Epic", color: "#B879E8" },
+  legendary: { label: "Legendary", color: "#F2B84B" },
 };
 
 /* Inheritance: lets a player move a higher item level onto a piece

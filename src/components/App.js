@@ -270,11 +270,12 @@ export default function App() {
             </div>
             <div className="item-list">
               {itemList.length === 0 && <p className="muted">No items match &quot;{searchQuery}&quot;.</p>}
-              {itemList.map((item) => (
-                <ItemRow key={item.id} item={item} selected={selectedItem?.id === item.id} onSelect={setSelectedItem} />
+              {itemList.map((item, i) => (
+                <ItemRow key={item.id} item={item} index={i} selected={selectedItem?.id === item.id} onSelect={setSelectedItem} />
               ))}
             </div>
           </div>
+          <div className="layout-divider" />
           <div className="panel panel--detail">
             <ItemDetail
               item={selectedItem}
@@ -294,6 +295,7 @@ export default function App() {
             <h3 className="panel-title">Paperdoll</h3>
             <Paperdoll wishlist={wishlist} onRemove={removeFromSlot} onSlotClick={handleSlotClick} onLevelChange={updateLevel} />
           </div>
+          <div className="layout-divider" />
           <div className="panel panel--detail">
             <StatSheet wishlist={wishlist} />
           </div>

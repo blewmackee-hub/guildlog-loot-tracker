@@ -41,11 +41,11 @@ export default function WishlistTab({ savedItems, wishlist, onEquip, onRemove, o
       {Object.entries(groups).map(([groupKey, group]) => (
         <div className="wishlist-group" key={groupKey}>
           <h3 className="wishlist-group__label">{group.label}</h3>
-          {group.items.map(({ item, entry }) => {
+          {group.items.map(({ item, entry }, i) => {
             const isEquipped = equippedItemIds.has(item.id);
             const candidates = !item.slot && item.slotGroup ? slotsForGroup(item.slotGroup) : null;
             return (
-              <div className="wishlist-entry" key={item.id}>
+              <div className="wishlist-entry scan-row" key={item.id} style={{ animationDelay: `${Math.min(i * 30, 400)}ms` }}>
                 <div className="wishlist-entry__top">
                   <RarityDot rarity={item.rarity} />
                   <span className="wishlist-entry__name">{item.name}</span>

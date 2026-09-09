@@ -78,8 +78,8 @@ export default function GuildMembers({ guildName, onDeleteGuild, onOwnerChanged 
       {error && <p className="auth-error">{error}</p>}
       {!members && !error && <p className="muted">Loading…</p>}
       {members && members.length === 0 && <p className="muted">No members yet.</p>}
-      {members && members.map((m) => (
-        <div className="guild-member-row" key={m.discordId}>
+      {members && members.map((m, i) => (
+        <div className="guild-member-row scan-row" key={m.discordId} style={{ animationDelay: `${Math.min(i * 30, 400)}ms` }}>
           <div className="guild-member-row__info">
             <span className="guild-member-row__name">
               {m.username}
