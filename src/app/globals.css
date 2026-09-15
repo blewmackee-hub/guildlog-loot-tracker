@@ -384,7 +384,10 @@ input[type="range"]::-moz-range-thumb {
 }
 .layout-divider { display: none; }
 @media (max-width: 860px) {
-  .layout--split { grid-template-columns: 1fr; }
+  /* minmax(0, 1fr), not bare 1fr - a bare 1fr track still won't
+     shrink past its content's min-content width, which is exactly
+     the overflow this collapse is trying to avoid. */
+  .layout--split { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ---- the glass panel ---------------------------------------------------- */
@@ -2054,4 +2057,50 @@ input[type="range"]::-moz-range-thumb {
   .btn-primary { animation: none; }
   .live-dot, .profile-bar__avatar { animation: none; }
   .scan-row { animation-duration: 1ms; }
+}
+
+/* ---- mobile responsive --------------------------------------------------
+   Everything below is scoped to narrow viewports only - desktop/tablet
+   layout above these breakpoints is untouched. The one real bug this
+   fixes: .profile-bar's children (character switcher, +New, Leave Guild,
+   admin/sign-out icons) don't wrap on their own, so on a narrow phone
+   they were forcing the ENTIRE .app wider than the viewport - not just
+   a cramped header, but a horizontally-scrollable whole page (every
+   tab, not just the header). Letting profile-bar wrap fixes that at
+   the source. */
+@media (max-width: 760px) {
+  .profile-bar { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+}
+@media (max-width: 480px) {
+  #profile-bar-character-label { display: none; }
+  .app__header, .app__tabbar { padding-left: 14px; padding-right: 14px; }
+  .layout { padding-left: 14px; padding-right: 14px; }
+}
+
+/* Tab tray: wrapping to 3 rows ate a third of a phone screen's height
+   before you'd even reached page content. A horizontally-scrollable
+   single row is the more standard mobile pattern and keeps every tab
+   reachable with a swipe instead of a scan-down. */
+@media (max-width: 700px) {
+  .app__nav-row { flex-wrap: nowrap; }
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: none; }
+  .tab--help { flex: none; }
+}
+
+/* DKP table: dkp-table__scroll already lets the table itself scroll
+   horizontally rather than the whole page - this just narrows the
+   fixed column widths so less of it needs to be off-screen at once
+   on a phone. */
+@media (max-width: 700px) {
+  .dkp-table__name-col { width: 96px; }
+  .dkp-table__adjust-col { width: 150px; }
+  .dkp-table th, .dkp-table td { padding: 6px 5px; }
+  .dkp-table__bulk-input, .dkp-table__row-input { width: 40px; }
 }
