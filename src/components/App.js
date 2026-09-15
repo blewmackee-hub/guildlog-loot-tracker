@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { X, Search } from "lucide-react";
+import { X, Search, Menu } from "lucide-react";
 import ItemRow from "./ItemRow";
 import ItemDetail from "./ItemDetail";
 import Paperdoll from "./Paperdoll";
@@ -62,6 +63,27 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingSlot, setPendingSlot] = useState(null);
   const [buildError, setBuildError] = useState(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileNavTop, setMobileNavTop] = useState(0);
+  const headerRef = useRef(null);
+
+  // Portaled to document.body (see Modal.js for the same trick, same
+  // reason): .app__header sets backdrop-filter, which makes it a
+  // containing block for position:fixed descendants same as it would
+  // for position:absolute - so a plain fixed-position dropdown/backdrop
+  // nested inside the header doesn't actually reach the viewport, it's
+  // clipped to the header's own (much shorter) box. Escaping to body
+  // sidesteps that, but then the dropdown needs its own top offset
+  // instead of `top: 100%` off its old header parent - measured here
+  // since the header's height isn't a fixed constant (it wraps to a
+  // second row on narrow screens).
+  useEffect(() => {
+    if (!mobileNavOpen || !headerRef.current) return;
+    const update = () => setMobileNavTop(headerRef.current.getBoundingClientRect().bottom);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [mobileNavOpen]);
 
   const [character, setCharacter] = useState(null);
   const [guildName, setGuildName] = useState(null);
@@ -293,9 +315,19 @@ export default function App() {
     );
   }
 
+  const NAV_TABS = [
+    { id: "database", label: "Database" },
+    { id: "build", label: "Build" },
+    { id: "wishlist", label: "Wishlist" },
+    { id: "plan", label: "Farm Plan" },
+    { id: "dkp", label: "DKP" },
+    { id: "parties", label: "Parties" },
+    ...(isGuildOwner ? [{ id: "members", label: "Members" }] : []),
+  ];
+
   return (
     <div className="app">
-      <header className="app__header">
+      <header className="app__header" ref={headerRef}>
         <div className="app__header-top">
           <Link href="/" className="brand-lockup">
             <div className="brand-lockup__crest" />
@@ -316,15 +348,7 @@ export default function App() {
         </div>
         <div className="app__nav-row">
           <nav className="tabs">
-            {[
-              { id: "database", label: "Database" },
-              { id: "build", label: "Build" },
-              { id: "wishlist", label: "Wishlist" },
-              { id: "plan", label: "Farm Plan" },
-              { id: "dkp", label: "DKP" },
-              { id: "parties", label: "Parties" },
-              ...(isGuildOwner ? [{ id: "members", label: "Members" }] : []),
-            ].map((t) => (
+            {NAV_TABS.map((t) => (
               <button key={t.id} className={`tab tab--${t.id} ${tab === t.id ? "tab--active" : ""}`} onClick={() => setTab(t.id)}>
                 {t.label}
               </button>
@@ -333,8 +357,36 @@ export default function App() {
           <button className={`tab tab--help ${tab === "help" ? "tab--active" : ""}`} onClick={() => setTab("help")}>
             Help
           </button>
+          <button
+            className="mobile-nav-toggle"
+            onClick={() => setMobileNavOpen((v) => !v)}
+            aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileNavOpen}
+          >
+            <Menu size={18} strokeWidth={1.75} />
+          </button>
         </div>
       </header>
+      {mobileNavOpen && typeof document !== "undefined" && createPortal(
+        <>
+          <div className="mobile-nav-backdrop" onClick={() => setMobileNavOpen(false)} />
+          <nav className="mobile-nav-menu" style={{ top: mobileNavTop }}>
+            {[...NAV_TABS, { id: "help", label: "Help" }].map((t) => (
+              <button
+                key={t.id}
+                className={`mobile-nav-menu__item tab--${t.id} ${tab === t.id ? "mobile-nav-menu__item--active" : ""}`}
+                onClick={() => {
+                  setTab(t.id);
+                  setMobileNavOpen(false);
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </nav>
+        </>,
+        document.body
+      )}
 
       {pendingSlot && tab === "database" && (
         <div className="pending-banner">

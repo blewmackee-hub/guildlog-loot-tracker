@@ -821,6 +821,7 @@ input[type="range"]::-moz-range-thumb {
 
 /* ---- profile bar ------------------------------------------------------- */
 .profile-bar { display: flex; align-items: center; gap: 9px; margin-left: auto; }
+.profile-bar__actions { display: flex; align-items: center; gap: 9px; }
 .profile-bar__label { font: 400 11px/1 var(--font-ui); color: var(--ink-muted); white-space: nowrap; }
 .profile-bar__guild { display: flex; align-items: center; gap: 6px; }
 .profile-bar__select,
@@ -2069,7 +2070,12 @@ input[type="range"]::-moz-range-thumb {
    tab, not just the header). Letting profile-bar wrap fixes that at
    the source. */
 @media (max-width: 760px) {
-  .profile-bar { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+  .profile-bar { flex-wrap: wrap; justify-content: flex-end; row-gap: 8px; }
+  /* Forces the action buttons (New/Leave Guild/admin/sign-out) onto
+     their own full-width line as one cohesive, evenly-gapped group,
+     instead of wrapping button-by-button and stranding whichever ones
+     didn't fit on the identity row above. */
+  .profile-bar__actions { flex-wrap: wrap; justify-content: flex-end; flex: 1 0 100%; }
 }
 @media (max-width: 480px) {
   #profile-bar-character-label { display: none; }
@@ -2078,20 +2084,66 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* Tab tray: wrapping to 3 rows ate a third of a phone screen's height
-   before you'd even reached page content. A horizontally-scrollable
-   single row is the more standard mobile pattern and keeps every tab
-   reachable with a swipe instead of a scan-down. */
+   before you'd even reached page content, and a horizontally-scrolling
+   pill tray hid tabs off-screen with no indication they were there.
+   A hamburger menu that drops a plain top-to-bottom list is the more
+   familiar mobile pattern - every tab is visible at once, nothing is
+   discoverable only by swiping. */
+.mobile-nav-toggle { display: none; }
+.mobile-nav-backdrop { display: none; }
+.mobile-nav-menu { display: none; }
 @media (max-width: 700px) {
-  .app__nav-row { flex-wrap: nowrap; }
-  .tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+  .app__nav-row { flex-wrap: nowrap; justify-content: space-between; }
+  .tabs, .app__nav-row > .tab--help { display: none; }
+  .mobile-nav-toggle {
+    display: flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; flex: none;
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(226,205,168,.12);
+    border-radius: 999px;
+    color: var(--ink-muted);
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
   }
-  .tabs::-webkit-scrollbar { display: none; }
-  .tab { flex: none; }
-  .tab--help { flex: none; }
+  .mobile-nav-toggle:hover,
+  .mobile-nav-toggle[aria-expanded="true"] { background: rgba(226,205,168,.1); border-color: rgba(226,205,168,.28); color: var(--ink-bright); }
+  .mobile-nav-backdrop {
+    display: block;
+    position: fixed; inset: 0;
+    background: rgba(10,8,6,.55);
+    z-index: 40;
+  }
+  .mobile-nav-menu {
+    display: flex; flex-direction: column;
+    position: fixed; left: 0; right: 0;
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
+    z-index: 41;
+    padding: 8px;
+    gap: 3px;
+    background: var(--panel-glass-chrome);
+    backdrop-filter: var(--blur);
+    border-bottom: 1px solid var(--edge-lit);
+    box-shadow: 0 16px 34px -14px #000;
+    color: var(--ink-muted);
+  }
+  .mobile-nav-menu__item {
+    display: block; width: 100%;
+    padding: 13px 14px;
+    font: 600 13px/1 var(--font-ui);
+    letter-spacing: .03em;
+    text-align: left;
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(226,205,168,.12);
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .mobile-nav-menu__item--active {
+    color: #2c2013;
+    background: linear-gradient(160deg, var(--accent-lit) 0%, var(--accent-hi) 55%, var(--accent) 100%);
+    border-color: transparent;
+    font-weight: 700;
+  }
 }
 
 /* DKP table: dkp-table__scroll already lets the table itself scroll

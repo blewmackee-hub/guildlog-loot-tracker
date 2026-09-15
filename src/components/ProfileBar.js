@@ -45,6 +45,7 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
           <option key={c.id} value={c.id}>{c.name}</option>
         ))}
       </select>
+      <div className="profile-bar__actions">
       {adding ? (
         <>
           <input
@@ -102,6 +103,7 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
       >
         <LogOut size={15} strokeWidth={1.5} />
       </button>
+      </div>
     </div>
   );
 }
