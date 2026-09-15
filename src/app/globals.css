@@ -1731,6 +1731,13 @@ input[type="range"]::-moz-range-thumb {
 .dkp-table__bulk .btn-secondary--sm, .dkp-table__row-adjust .btn-secondary--sm {
   flex: none; padding: 6px 10px; font-size: 10.5px; letter-spacing: .02em; white-space: nowrap;
 }
+/* dkp-apply-btn wraps its label in a span so mobile (see the 700px
+   query above) can hide the text and show just the icon instead -
+   "Apply Selected" alone is wider than the whole column has room for
+   on a phone. Icon stays hidden here so desktop's text-only buttons
+   are unchanged. */
+.dkp-apply-btn { display: inline-flex; align-items: center; gap: 5px; }
+.dkp-apply-btn__icon { display: none; }
 .dkp-row__officer-badge {
   margin-left: 6px;
   padding: 1px 6px;
@@ -2168,13 +2175,20 @@ input[type="range"]::-moz-range-thumb {
   }
 }
 
-/* DKP table: dkp-table__scroll already lets the table itself scroll
-   horizontally rather than the whole page - this just narrows the
-   fixed column widths so less of it needs to be off-screen at once
-   on a phone. */
+/* DKP table: stays a real table with columns in line on mobile too -
+   it's just narrow enough to fit now. The Apply buttons are the thing
+   that didn't want to shrink ("Apply Selected" alone is wider than
+   the whole adjust column has room for), so on mobile they drop their
+   label and show only the icon that's already in dkp-apply-btn's
+   markup (see DkpTab.js) - everything else just gets narrower. */
 @media (max-width: 700px) {
-  .dkp-table__name-col { width: 96px; }
-  .dkp-table__adjust-col { width: 150px; }
-  .dkp-table th, .dkp-table td { padding: 6px 5px; }
-  .dkp-table__bulk-input, .dkp-table__row-input { width: 40px; }
+  .dkp-table__name-col { width: 68px; }
+  .dkp-table__total-col { width: 30px; }
+  .dkp-table__adjust-col { width: 78px; }
+  .dkp-table th, .dkp-table td { padding: 6px 3px; }
+  .dkp-table__bulk-input, .dkp-table__row-input { width: 28px; padding: 4px 3px; }
+  .dkp-table__bulk, .dkp-table__row-adjust { gap: 3px; }
+  .dkp-apply-btn { padding: 5px 6px; }
+  .dkp-apply-btn__label { display: none; }
+  .dkp-apply-btn__icon { display: inline-flex; }
 }

@@ -271,11 +271,13 @@ export default function DkpTab() {
                           placeholder="0"
                         />
                         <button
-                          className="btn-secondary btn-secondary--sm"
+                          className="btn-secondary btn-secondary--sm dkp-apply-btn"
                           disabled={busyKey === "bulk-add" || selected.size === 0 || !bulkAdd}
                           onClick={() => adjustDkp([...selected], Number.parseInt(bulkAdd, 10), "bulk-add", bulkReason)}
+                          title="Apply Selected"
                         >
-                          Apply Selected
+                          <Check size={12} strokeWidth={3} className="dkp-apply-btn__icon" />
+                          <span className="dkp-apply-btn__label">Apply Selected</span>
                         </button>
                       </div>
                     </th>
@@ -292,11 +294,13 @@ export default function DkpTab() {
                           placeholder="0"
                         />
                         <button
-                          className="btn-secondary btn-secondary--sm"
+                          className="btn-secondary btn-secondary--sm dkp-apply-btn"
                           disabled={busyKey === "bulk-subtract" || selected.size === 0 || !bulkSubtract}
                           onClick={() => adjustDkp([...selected], -Number.parseInt(bulkSubtract, 10), "bulk-subtract", bulkReason)}
+                          title="Apply Selected"
                         >
-                          Apply Selected
+                          <Check size={12} strokeWidth={3} className="dkp-apply-btn__icon" />
+                          <span className="dkp-apply-btn__label">Apply Selected</span>
                         </button>
                       </div>
                     </th>
@@ -344,11 +348,13 @@ export default function DkpTab() {
                             onChange={(e) => setRowValue(m.discordId, "add", e.target.value)}
                           />
                           <button
-                            className="btn-secondary btn-secondary--sm"
+                            className="btn-secondary btn-secondary--sm dkp-apply-btn"
                             disabled={busyKey === `row-add:${m.discordId}` || !rowValue(m.discordId, "add")}
                             onClick={() => adjustDkp([m.discordId], Number.parseInt(rowValue(m.discordId, "add"), 10), `row-add:${m.discordId}`)}
+                            title="Apply"
                           >
-                            Apply
+                            <Check size={12} strokeWidth={3} className="dkp-apply-btn__icon" />
+                            <span className="dkp-apply-btn__label">Apply</span>
                           </button>
                         </div>
                       </td>
@@ -365,11 +371,13 @@ export default function DkpTab() {
                             onChange={(e) => setRowValue(m.discordId, "subtract", e.target.value)}
                           />
                           <button
-                            className="btn-secondary btn-secondary--sm"
+                            className="btn-secondary btn-secondary--sm dkp-apply-btn"
                             disabled={busyKey === `row-subtract:${m.discordId}` || !rowValue(m.discordId, "subtract")}
                             onClick={() => adjustDkp([m.discordId], -Number.parseInt(rowValue(m.discordId, "subtract"), 10), `row-subtract:${m.discordId}`)}
+                            title="Apply"
                           >
-                            Apply
+                            <Check size={12} strokeWidth={3} className="dkp-apply-btn__icon" />
+                            <span className="dkp-apply-btn__label">Apply</span>
                           </button>
                         </div>
                       </td>
