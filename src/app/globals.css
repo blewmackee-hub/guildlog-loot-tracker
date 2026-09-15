@@ -2083,6 +2083,18 @@ input[type="range"]::-moz-range-thumb {
   .layout { padding-left: 14px; padding-right: 14px; }
 }
 
+/* Paperdoll (Build tab): same bare-1fr grid-shrinking issue as
+   .layout--split above, just on the weapon/armor/accessory slot grid
+   itself this time - a filled slot's content (item name, level
+   slider + "Current Lv 75" label, remove button) doesn't want to
+   compress, so without minmax(0, ...) the two slot columns refused to
+   shrink below that and ran the whole grid off the right edge of a
+   phone screen. */
+@media (max-width: 700px) {
+  .paperdoll { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .slot__level input[type="range"] { min-width: 0; }
+}
+
 /* Database list: desktop's 520px cap shows 8-9 rows before its own
    scrollbar kicks in - fine next to a fixed-height detail panel, but
    on a phone (list and detail stacked, see .layout--split's 860px
