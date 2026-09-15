@@ -2083,6 +2083,16 @@ input[type="range"]::-moz-range-thumb {
   .layout { padding-left: 14px; padding-right: 14px; }
 }
 
+/* Database list: desktop's 520px cap shows 8-9 rows before its own
+   scrollbar kicks in - fine next to a fixed-height detail panel, but
+   on a phone (list and detail stacked, see .layout--split's 860px
+   collapse) that's most of a screen's height spent just on the list
+   before you'd ever reach the detail panel below it. Capping it to
+   ~3 rows keeps a phone screen from being dominated by the list. */
+@media (max-width: 700px) {
+  .item-list { max-height: 168px; }
+}
+
 /* Tab tray: wrapping to 3 rows ate a third of a phone screen's height
    before you'd even reached page content, and a horizontally-scrolling
    pill tray hid tabs off-screen with no indication they were there.
