@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 /* The A/B choice from project-brief.md's addendum: after Discord
    login, find an existing guild (search + enter its PIN) or
@@ -109,7 +110,14 @@ export default function GuildChooser({ discordName }) {
           </div>
         </div>
 
-        {error && <p className="auth-error">{error}</p>}
+        {error && <p className="auth-error" role="alert">{error}</p>}
+
+        {mode === "find" && (
+          <p className="muted guild-chooser__hint">
+            Already registered? Discord login only confirms who you are - search for your guild below and enter the
+            same character name and PIN you used before to get back to your page.
+          </p>
+        )}
 
         {mode === "find" ? (
           <form onSubmit={joinGuild} className="guild-form">
@@ -117,6 +125,8 @@ export default function GuildChooser({ discordName }) {
               className="search-row__input guild-form__input"
               type="text"
               placeholder="Search guild name…"
+              aria-label="Search guild name"
+              autoComplete="off"
               value={query}
               onChange={(e) => { setQuery(e.target.value); setSelectedGuild(null); }}
             />
@@ -132,12 +142,26 @@ export default function GuildChooser({ discordName }) {
             )}
             {selectedGuild && (
               <>
-                <p className="muted">Joining <strong>{selectedGuild.name}</strong></p>
+                <p className="muted guild-chooser__joining">
+                  <button
+                    type="button"
+                    className="guild-chooser__back"
+                    onClick={() => { setSelectedGuild(null); setJoinPin(""); }}
+                    title="Back to search results"
+                    aria-label="Back to search results"
+                  >
+                    <ArrowLeft size={14} strokeWidth={2} />
+                  </button>
+                  Joining <strong>{selectedGuild.name}</strong>
+                </p>
                 <input
                   className="guild-form__input"
                   type="password"
                   inputMode="numeric"
                   placeholder="Guild PIN"
+                  aria-label="Guild PIN"
+                  autoComplete="off"
+                  spellCheck={false}
                   value={joinPin}
                   onChange={(e) => setJoinPin(e.target.value)}
                 />
@@ -145,6 +169,9 @@ export default function GuildChooser({ discordName }) {
                   className="guild-form__input"
                   type="text"
                   placeholder="Character name"
+                  aria-label="Character name"
+                  autoComplete="off"
+                  spellCheck={false}
                   value={characterName}
                   onChange={(e) => setCharacterName(e.target.value)}
                 />
@@ -160,6 +187,9 @@ export default function GuildChooser({ discordName }) {
               className="guild-form__input"
               type="text"
               placeholder="Guild name"
+              aria-label="Guild name"
+              autoComplete="off"
+              spellCheck={false}
               value={newGuildName}
               onChange={(e) => setNewGuildName(e.target.value)}
             />
@@ -168,6 +198,9 @@ export default function GuildChooser({ discordName }) {
               type="password"
               inputMode="numeric"
               placeholder="Set a PIN (4-8 digits)"
+              aria-label="Set a PIN, 4 to 8 digits"
+              autoComplete="off"
+              spellCheck={false}
               value={newPin}
               onChange={(e) => setNewPin(e.target.value)}
             />
@@ -176,6 +209,9 @@ export default function GuildChooser({ discordName }) {
               type="password"
               inputMode="numeric"
               placeholder="Confirm PIN"
+              aria-label="Confirm PIN"
+              autoComplete="off"
+              spellCheck={false}
               value={confirmPin}
               onChange={(e) => setConfirmPin(e.target.value)}
             />
@@ -183,6 +219,9 @@ export default function GuildChooser({ discordName }) {
               className="guild-form__input"
               type="text"
               placeholder="Character name"
+              aria-label="Character name"
+              autoComplete="off"
+              spellCheck={false}
               value={newCharacterName}
               onChange={(e) => setNewCharacterName(e.target.value)}
             />

@@ -5,6 +5,10 @@ export const ITEMS = data.ITEMS;
 export const SOURCES = data.SOURCES;
 export const SETS = data.SETS;
 export const RECIPES = data.RECIPES;
+// Potential Ability pools - a handful of catalogs shared verbatim across
+// hundreds of items (see Transform-Questlog.ps1's Get-PotentialCatalogId),
+// looked up by item.potentialCatalogId rather than inlined per item.
+export const POTENTIAL_CATALOGS = data.POTENTIAL_CATALOGS || {};
 
 /* Slots sharing an item's slotGroup, in a stable order, for the
    "which instance?" chooser. */
@@ -48,17 +52,22 @@ export function estimateInheritCost(fromLevel, toLevel) {
 export function resolveFarmPlan(itemIds) {
   const farmBySource = {};
   const craftChain = [];
+  const unresolved = [];
   const seenMaterials = new Set();
+  const seenItems = new Set();
 
   function addFarmTarget(item) {
-    if (!item || !item.sources || item.sources.length === 0) return;
+    if (!item || !item.sources || item.sources.length === 0) return false;
     item.sources.forEach(({ sourceId, rate }) => {
       if (!farmBySource[sourceId]) farmBySource[sourceId] = [];
       farmBySource[sourceId].push({ itemId: item.id, name: item.name, rate });
     });
+    return true;
   }
 
   function resolveItem(itemId) {
+    if (seenItems.has(itemId)) return;
+    seenItems.add(itemId);
     const item = ITEMS[itemId];
     if (!item) return;
     const recipe = RECIPES[itemId];
@@ -76,13 +85,17 @@ export function resolveFarmPlan(itemIds) {
           }
         });
       });
-    } else {
-      addFarmTarget(item);
+    } else if (!addFarmTarget(item)) {
+      // Neither a known drop source nor a craft recipe - surfaced
+      // explicitly rather than silently vanishing from the plan, since
+      // Questlog's scrape doesn't yet cover every item (see
+      // project-brief.md's open question #3).
+      unresolved.push({ itemId: item.id, name: item.name });
     }
   }
 
   itemIds.forEach(resolveItem);
-  return { farmBySource, craftChain };
+  return { farmBySource, craftChain, unresolved };
 }
 
 /* Every equipped slot is assumed to be aiming at that item's max

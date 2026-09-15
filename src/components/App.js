@@ -10,10 +10,47 @@ import Paperdoll from "./Paperdoll";
 import StatSheet from "./StatSheet";
 import WishlistTab from "./WishlistTab";
 import FarmPlan from "./FarmPlan";
-import InheritanceTab from "./InheritanceTab";
 import ProfileBar from "./ProfileBar";
 import GuildMembers from "./GuildMembers";
+import DkpTab from "./DkpTab";
+import PartyPlannerTab from "./PartyPlannerTab";
 import { ITEMS, coarseGroupFor } from "@/lib/calculations";
+import { SLOTS, RARITY_ORDER } from "@/lib/gameData";
+
+// Database ordering: coarse paperdoll group (weapon, armor, accessory)
+// top-to-bottom, then rarity descending within each group - so every
+// heroic accessory comes before every epic accessory, rather than
+// grouping by exact slot (all belts, then all necklaces...) first.
+// Slot order is only a tiebreak within the same group+rarity, to keep
+// same-rarity items loosely clustered by slot. Skill cores/unassigned
+// items (no slot or slotGroup) sort after everything.
+const GROUP_ORDER = ["weapon", "armor", "accessory"];
+function groupRankFor(item) {
+  const idx = GROUP_ORDER.indexOf(coarseGroupFor(item));
+  return idx === -1 ? GROUP_ORDER.length : idx;
+}
+function slotRankFor(item) {
+  if (item.slot) {
+    const idx = SLOTS.findIndex((s) => s.id === item.slot);
+    if (idx !== -1) return idx;
+  }
+  if (item.slotGroup) {
+    const idx = SLOTS.findIndex((s) => s.slotGroup === item.slotGroup);
+    if (idx !== -1) return idx;
+  }
+  return SLOTS.length;
+}
+function rarityRankFor(item) {
+  const idx = RARITY_ORDER.indexOf(item.rarity);
+  return idx === -1 ? RARITY_ORDER.length : idx;
+}
+// Final tiebreak within the same group+rarity+slot: item level
+// (descending - highest level first), not alphabetical - name only
+// breaks a level tie. Items with no level (materials, some skill
+// cores) sort after leveled ones.
+function levelRankFor(item) {
+  return -(item.levelRange?.max ?? -Infinity);
+}
 
 export default function App() {
   const router = useRouter();
@@ -24,10 +61,13 @@ export default function App() {
   const [filterGroup, setFilterGroup] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingSlot, setPendingSlot] = useState(null);
+  const [buildError, setBuildError] = useState(null);
 
   const [character, setCharacter] = useState(null);
   const [guildName, setGuildName] = useState(null);
   const [isGuildOwner, setIsGuildOwner] = useState(false);
+  const [canClaimLeadership, setCanClaimLeadership] = useState(false);
+  const [claimingLeadership, setClaimingLeadership] = useState(false);
   const [characters, setCharacters] = useState([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [isSiteAdmin, setIsSiteAdmin] = useState(false);
@@ -39,6 +79,7 @@ export default function App() {
     setCharacter(ctx.character);
     setGuildName(ctx.guild?.name ?? null);
     setIsGuildOwner(ctx.guild?.isOwner ?? false);
+    setCanClaimLeadership(ctx.guild?.canClaimLeadership ?? false);
     setCharacters(ctx.characters ?? []);
     setWishlist(ctx.character.build ?? {});
     setSavedItems(ctx.character.wishlist ?? {});
@@ -135,17 +176,63 @@ export default function App() {
     if (!data.guild?.isOwner) setTab((t) => (t === "members" ? "database" : t));
   }
 
+  // The old leader stays owner_discord_id right up until this call
+  // succeeds - claimLeadership (src/lib/guilds.js) re-verifies the
+  // inactivity window server-side, so a stale client-side
+  // canClaimLeadership flag can't itself grant anything.
+  async function claimLeadership() {
+    setClaimingLeadership(true);
+    try {
+      const res = await fetch("/api/guild/claim-leadership", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setBuildError(data.error || "Something went wrong.");
+        return;
+      }
+      await refreshAfterOwnerChange();
+    } finally {
+      setClaimingLeadership(false);
+    }
+  }
+
   const itemList = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return Object.values(ITEMS)
       .filter((i) => !i.isMaterial)
       .filter((i) => filterGroup === "all" || coarseGroupFor(i) === filterGroup)
-      .filter((i) => !query || i.name.toLowerCase().includes(query));
+      .filter((i) => !query || i.name.toLowerCase().includes(query))
+      .sort((a, b) => groupRankFor(a) - groupRankFor(b) || rarityRankFor(a) - rarityRankFor(b) || slotRankFor(a) - slotRankFor(b) || levelRankFor(a) - levelRankFor(b) || a.name.localeCompare(b.name));
   }, [filterGroup, searchQuery]);
+
+  // Only one Heroic-rarity item may be equipped per broad equipment type
+  // (weapon/armor/accessory) at once - a real in-game restriction, not a
+  // UI nicety, so it's enforced here rather than left to the player to
+  // notice. `slot.group` (gameData.js) is exactly that weapon/armor/
+  // accessory bucket already used for the database filter chips.
+  function findHeroicConflict(item, targetSlotId) {
+    if (item.rarity !== "heroic") return null;
+    const targetGroup = SLOTS.find((s) => s.id === targetSlotId)?.group;
+    if (!targetGroup) return null;
+    const conflictSlotId = Object.keys(wishlist).find((sid) => {
+      if (sid === targetSlotId) return false;
+      const entry = wishlist[sid];
+      if (!entry) return false;
+      if (SLOTS.find((s) => s.id === sid)?.group !== targetGroup) return false;
+      return ITEMS[entry.itemId]?.rarity === "heroic";
+    });
+    if (!conflictSlotId) return null;
+    return SLOTS.find((s) => s.id === conflictSlotId)?.label || conflictSlotId;
+  }
 
   function addToWishlist(item, explicitSlotId) {
     const targetSlotId = explicitSlotId || item.slot;
     if (!targetSlotId) return;
+    const conflictLabel = findHeroicConflict(item, targetSlotId);
+    if (conflictLabel) {
+      setBuildError(`Only one Heroic item per equipment type at a time — remove the Heroic ${conflictLabel} first.`);
+      return;
+    }
+    setBuildError(null);
     setWishlist((w) => ({ ...w, [targetSlotId]: { itemId: item.id, level: item.levelRange?.max ?? null } }));
     setPendingSlot(null);
     setTab("build");
@@ -157,6 +244,16 @@ export default function App() {
 
   function updateLevel(slotId, level) {
     setWishlist((w) => ({ ...w, [slotId]: { ...w[slotId], level } }));
+  }
+
+  // Traits/Heroic Trait/Potential Ability are all picked from the
+  // item's own real pool (item.traitOptions/heroicTraitOptions/
+  // potentialCatalogId - see Transform-Questlog.ps1); Resonance is the
+  // one exception, still manual since there's no scraped catalog for
+  // it. `patch` merges straight into the slot's entry, e.g.
+  // { selectedTraits: [...] } or { selectedPotential: {...} }.
+  function updateSlotMeta(slotId, patch) {
+    setWishlist((w) => ({ ...w, [slotId]: { ...w[slotId], ...patch } }));
   }
 
   function handleSlotClick(slot) {
@@ -201,9 +298,7 @@ export default function App() {
       <header className="app__header">
         <div className="app__header-top">
           <Link href="/" className="brand-lockup">
-            <div className="brand-lockup__crest">
-              <div className="brand-lockup__crest-gem" />
-            </div>
+            <div className="brand-lockup__crest" />
             <div className="brand-lockup__text">
               <span className="brand-lockup__word">GUILDLOG</span>
               <span className="brand-lockup__subline">Loot Tracker</span>
@@ -219,27 +314,48 @@ export default function App() {
             isSiteAdmin={isSiteAdmin}
           />
         </div>
-        <nav className="tabs">
-          {[
-            { id: "database", label: "Database" },
-            { id: "build", label: "Build" },
-            { id: "wishlist", label: "Wishlist" },
-            { id: "plan", label: "Farm Plan" },
-            { id: "inheritance", label: "Inheritance" },
-            ...(isGuildOwner ? [{ id: "members", label: "Members" }] : []),
-            { id: "help", label: "Help" },
-          ].map((t) => (
-            <button key={t.id} className={`tab tab--${t.id} ${tab === t.id ? "tab--active" : ""}`} onClick={() => setTab(t.id)}>
-              {t.label}
-            </button>
-          ))}
-        </nav>
+        <div className="app__nav-row">
+          <nav className="tabs">
+            {[
+              { id: "database", label: "Database" },
+              { id: "build", label: "Build" },
+              { id: "wishlist", label: "Wishlist" },
+              { id: "plan", label: "Farm Plan" },
+              { id: "dkp", label: "DKP" },
+              { id: "parties", label: "Parties" },
+              ...(isGuildOwner ? [{ id: "members", label: "Members" }] : []),
+            ].map((t) => (
+              <button key={t.id} className={`tab tab--${t.id} ${tab === t.id ? "tab--active" : ""}`} onClick={() => setTab(t.id)}>
+                {t.label}
+              </button>
+            ))}
+          </nav>
+          <button className={`tab tab--help ${tab === "help" ? "tab--active" : ""}`} onClick={() => setTab("help")}>
+            Help
+          </button>
+        </div>
       </header>
 
       {pendingSlot && tab === "database" && (
         <div className="pending-banner">
           Choose a {pendingSlot.label} for your build
-          <button onClick={() => setPendingSlot(null)}><X size={13} /></button>
+          <button onClick={() => setPendingSlot(null)} aria-label="Cancel"><X size={13} /></button>
+        </div>
+      )}
+
+      {buildError && (
+        <div className="pending-banner pending-banner--error" role="alert">
+          {buildError}
+          <button onClick={() => setBuildError(null)} aria-label="Dismiss"><X size={13} /></button>
+        </div>
+      )}
+
+      {canClaimLeadership && !isGuildOwner && (
+        <div className="pending-banner pending-banner--claim">
+          {guildName}&apos;s leader hasn&apos;t signed in for {"14+"} days.
+          <button className="pending-banner__claim-btn" disabled={claimingLeadership} onClick={claimLeadership}>
+            {claimingLeadership ? "Claiming…" : "Claim Leadership"}
+          </button>
         </div>
       )}
 
@@ -256,7 +372,7 @@ export default function App() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               {searchQuery && (
-                <button className="search-row__clear" onClick={() => setSearchQuery("")} title="Clear search">
+                <button className="search-row__clear" onClick={() => setSearchQuery("")} title="Clear search" aria-label="Clear search">
                   <X size={13} strokeWidth={2} />
                 </button>
               )}
@@ -299,7 +415,7 @@ export default function App() {
         <div className="layout layout--split">
           <div className="panel">
             <h3 className="panel-title">{character.name}</h3>
-            <Paperdoll wishlist={wishlist} onRemove={removeFromSlot} onSlotClick={handleSlotClick} onLevelChange={updateLevel} />
+            <Paperdoll wishlist={wishlist} onRemove={removeFromSlot} onSlotClick={handleSlotClick} onLevelChange={updateLevel} onUpdateMeta={updateSlotMeta} />
           </div>
           <div className="layout-divider" />
           <div className="panel panel--detail">
@@ -322,13 +438,19 @@ export default function App() {
 
       {tab === "plan" && (
         <div className="layout">
-          <FarmPlan savedItems={savedItems} />
+          <FarmPlan savedItems={savedItems} wishlist={wishlist} />
         </div>
       )}
 
-      {tab === "inheritance" && (
+      {tab === "dkp" && (
         <div className="layout">
-          <InheritanceTab wishlist={wishlist} />
+          <DkpTab />
+        </div>
+      )}
+
+      {tab === "parties" && (
+        <div className="layout">
+          <PartyPlannerTab />
         </div>
       )}
 
@@ -353,12 +475,19 @@ export default function App() {
               prospective gear across every slot.
             </p>
             <p>
-              Once something&apos;s equipped, drag its level slider in the Build tab — the <strong>Inheritance</strong>{" "}
-              tab will show the estimated ore cost to carry that piece up to its max level.
+              <strong>Farm Plan</strong> is guild-wide: it tallies everyone&apos;s Wishlist into one list of what to
+              farm and where, shows the ore cost to carry your own equipped Build up to max level, and lists the
+              recipes for anything craftable on your own Wishlist.
             </p>
             <p>
-              <strong>Farm Plan</strong> turns your Wishlist into an action list: which bosses, dungeons, or vendors
-              to hit, and roughly how many people each fight needs.
+              The <strong>DKP</strong> tab lists every guild member&apos;s Dragon Kill Points. Officers and the guild
+              leader can edit totals; the leader can also promote up to three members to officer, giving them editing
+              privileges in both the <strong>Parties</strong> and <strong>DKP</strong> tabs.
+            </p>
+            <p>
+              <strong>Parties</strong> lays out up to ten 6-player groups for GvG content or raids. Officers and the
+              guild leader can assign a class to each slot and save the layout as a named board; everyone can view
+              the saved boards.
             </p>
             <p>
               If you&apos;re the guild owner, the <strong>Members</strong> tab lets you manage your roster or pass

@@ -1,0 +1,437 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Crown, Shield, Check } from "lucide-react";
+
+const WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// Officer/leader editor for the guild's weekly DKP decay - same gate
+// as the rest of the DKP tab's controls, not leader-only (see
+// setDecaySettings/applyDueDecay in src/lib/guilds.js - there's no cron
+// job, it's applied lazily the next time anyone loads this tab on or
+// after the chosen day). Plain members get a read-only summary.
+function DecayControl({ decay, canEdit, onSave, busy }) {
+  const [editing, setEditing] = useState(false);
+  const [pct, setPct] = useState(0);
+  const [weekday, setWeekday] = useState(0);
+
+  const summary = decay?.pct > 0 ? `${decay.pct}% every ${WEEKDAY_LABELS[decay.weekday]}` : "Off";
+
+  if (!canEdit) {
+    return (
+      <div className="dkp-decay">
+        <span className="dkp-decay__label">Weekly Decay</span>
+        <span className="muted">{summary}</span>
+      </div>
+    );
+  }
+
+  if (!editing) {
+    return (
+      <button
+        className="dkp-decay dkp-decay--button"
+        onClick={() => {
+          setPct(decay?.pct ?? 0);
+          setWeekday(decay?.weekday ?? 0);
+          setEditing(true);
+        }}
+        title="Edit weekly DKP decay"
+      >
+        <span className="dkp-decay__label">Weekly Decay</span>
+        <span className="dkp-decay__value">{summary}</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="dkp-decay dkp-decay--editing">
+      <span className="dkp-decay__label">Weekly Decay</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min="0"
+        max="100"
+        className="dkp-decay__pct"
+        aria-label="Weekly decay percentage"
+        value={pct}
+        onChange={(e) => setPct(e.target.value)}
+      />
+      <span className="muted">%</span>
+      <select
+        className="dkp-decay__day"
+        aria-label="Day of the week decay applies"
+        value={weekday}
+        onChange={(e) => setWeekday(Number(e.target.value))}
+        disabled={Number(pct) === 0}
+      >
+        {WEEKDAY_LABELS.map((label, i) => (
+          <option key={i} value={i}>{label}</option>
+        ))}
+      </select>
+      <button
+        className="btn-secondary btn-secondary--sm"
+        disabled={busy}
+        onClick={() => {
+          onSave(Number(pct) || 0, Number(weekday));
+          setEditing(false);
+        }}
+      >
+        Save
+      </button>
+      <button className="btn-secondary btn-secondary--sm" onClick={() => setEditing(false)}>Cancel</button>
+    </div>
+  );
+}
+
+/* Visible to every guild member (unlike GuildMembers, which is
+   leader-only) - the server still re-checks who's allowed to edit
+   anything (adjustDkp/setOfficer in src/lib/guilds.js), this component
+   just hides controls that would 403.
+
+   DKP is never typed in directly - only adjusted by delta (the +/-
+   boxes, per-row or applied in bulk to every checked row) so there's
+   always a "what changed and by how much" story instead of a bare
+   overwritten number. */
+export default function DkpTab() {
+  const [roster, setRoster] = useState(null);
+  const [myRole, setMyRole] = useState("member");
+  const [officerCap, setOfficerCap] = useState(3);
+  const [decay, setDecay] = useState(null);
+  const [log, setLog] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [error, setError] = useState(null);
+  const [busyKey, setBusyKey] = useState(null);
+  const [selected, setSelected] = useState(() => new Set());
+  const [rowDraft, setRowDraft] = useState({}); // discordId -> { add, subtract }
+  const [bulkAdd, setBulkAdd] = useState("");
+  const [bulkSubtract, setBulkSubtract] = useState("");
+  const [bulkReason, setBulkReason] = useState("");
+
+  function load() {
+    fetch("/api/guild/dkp")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) throw new Error(data.error);
+        setRoster(data.roster);
+        setMyRole(data.myRole);
+        setOfficerCap(data.officerCap);
+        setDecay(data.decay);
+        setLog(data.log || []);
+      })
+      .catch((e) => setError(e.message));
+  }
+
+  useEffect(load, []);
+
+  async function saveDecay(pct, weekday) {
+    setBusyKey("decay");
+    setError(null);
+    try {
+      const res = await fetch("/api/guild/decay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pct, weekday }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  const canEdit = myRole === "leader" || myRole === "officer";
+  const canAssignOfficers = myRole === "leader";
+  const officerCount = roster ? roster.filter((m) => m.role === "officer").length : 0;
+  const allSelected = roster && roster.length > 0 && roster.every((m) => selected.has(m.discordId));
+
+  function toggleSelect(discordId) {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(discordId)) next.delete(discordId);
+      else next.add(discordId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(roster.map((m) => m.discordId)));
+  }
+
+  async function adjustDkp(discordIds, delta, busyId, reason) {
+    if (!Number.isInteger(delta) || delta === 0 || discordIds.length === 0) return;
+    setBusyKey(busyId);
+    setError(null);
+    try {
+      const res = await fetch("/api/guild/dkp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ discordIds, delta, reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function setOfficer(discordId, makeOfficer) {
+    setBusyKey(`officer:${discordId}`);
+    setError(null);
+    try {
+      const res = await fetch("/api/guild/officers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ discordId, makeOfficer }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  function rowValue(discordId, field) {
+    return rowDraft[discordId]?.[field] ?? "";
+  }
+  function setRowValue(discordId, field, value) {
+    setRowDraft((d) => ({ ...d, [discordId]: { ...d[discordId], [field]: value } }));
+  }
+
+  return (
+    <div className="dkp-tab panel">
+      <div className="dkp-tab__head">
+        <h3 className="panel-title">DKP</h3>
+        {roster && (
+          <DecayControl decay={decay} canEdit={canEdit} onSave={saveDecay} busy={busyKey === "decay"} />
+        )}
+      </div>
+      {error && <p className="auth-error" role="alert">{error}</p>}
+      {!roster && !error && <p className="muted">Loading…</p>}
+      {roster && roster.length === 0 && <p className="muted">No members yet.</p>}
+      {canAssignOfficers && (
+        <p className="muted dkp-tab__cap-note">Officer slots: {officerCount}/{officerCap}</p>
+      )}
+
+      {canEdit && roster && roster.length > 0 && (
+        <div className="dkp-reason-row">
+          <input
+            type="text"
+            className="dkp-reason-row__input"
+            placeholder="Adjustment note (for the log history) — e.g. PvP Archboss"
+            aria-label="Adjustment note"
+            autoComplete="off"
+            value={bulkReason}
+            onChange={(e) => setBulkReason(e.target.value)}
+          />
+        </div>
+      )}
+
+      {roster && roster.length > 0 && (
+        <div className="dkp-table__scroll">
+          <table className="dkp-table">
+            <thead>
+              <tr>
+                {canEdit && (
+                  <th className="dkp-table__select-col">
+                    <button
+                      className={`trait-pool__check ${allSelected ? "trait-pool__check--checked" : ""}`}
+                      onClick={toggleSelectAll}
+                      title={allSelected ? "Deselect all" : "Select all"}
+                      aria-label={allSelected ? "Deselect all" : "Select all"}
+                      aria-pressed={allSelected}
+                    >
+                      {allSelected && <Check size={12} strokeWidth={3} />}
+                    </button>
+                  </th>
+                )}
+                <th className="dkp-table__name-col">Name</th>
+                <th className="dkp-table__total-col">DKP</th>
+                {canEdit && (
+                  <>
+                    <th className="dkp-table__adjust-col">
+                      <div className="dkp-table__bulk">
+                        <span className="dkp-table__sign">+</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          className="dkp-table__bulk-input"
+                          aria-label="DKP to add to selected members"
+                          value={bulkAdd}
+                          onChange={(e) => setBulkAdd(e.target.value)}
+                          placeholder="0"
+                        />
+                        <button
+                          className="btn-secondary btn-secondary--sm"
+                          disabled={busyKey === "bulk-add" || selected.size === 0 || !bulkAdd}
+                          onClick={() => adjustDkp([...selected], Number.parseInt(bulkAdd, 10), "bulk-add", bulkReason)}
+                        >
+                          Apply Selected
+                        </button>
+                      </div>
+                    </th>
+                    <th className="dkp-table__adjust-col">
+                      <div className="dkp-table__bulk">
+                        <span className="dkp-table__sign">−</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          className="dkp-table__bulk-input"
+                          aria-label="DKP to subtract from selected members"
+                          value={bulkSubtract}
+                          onChange={(e) => setBulkSubtract(e.target.value)}
+                          placeholder="0"
+                        />
+                        <button
+                          className="btn-secondary btn-secondary--sm"
+                          disabled={busyKey === "bulk-subtract" || selected.size === 0 || !bulkSubtract}
+                          onClick={() => adjustDkp([...selected], -Number.parseInt(bulkSubtract, 10), "bulk-subtract", bulkReason)}
+                        >
+                          Apply Selected
+                        </button>
+                      </div>
+                    </th>
+                  </>
+                )}
+                {canAssignOfficers && <th />}
+              </tr>
+            </thead>
+            <tbody>
+              {roster.map((m) => (
+                <tr key={m.discordId} className={selected.has(m.discordId) ? "dkp-table__row--selected" : ""}>
+                  {canEdit && (
+                    <td>
+                      <button
+                        className={`trait-pool__check ${selected.has(m.discordId) ? "trait-pool__check--checked" : ""}`}
+                        onClick={() => toggleSelect(m.discordId)}
+                        title="Select"
+                        aria-label={`Select ${m.username}`}
+                        aria-pressed={selected.has(m.discordId)}
+                      >
+                        {selected.has(m.discordId) && <Check size={12} strokeWidth={3} />}
+                      </button>
+                    </td>
+                  )}
+                  <td>
+                    <span className="dkp-table__name">
+                      {m.username}
+                      {m.role === "leader" && <span className="guild-member-row__owner-badge">Leader</span>}
+                      {m.role === "officer" && <span className="dkp-row__officer-badge">Officer</span>}
+                    </span>
+                  </td>
+                  <td className="dkp-table__total">{m.dkpTotal}</td>
+                  {canEdit && (
+                    <>
+                      <td className="dkp-table__adjust-col">
+                        <div className="dkp-table__row-adjust">
+                          <span className="dkp-table__sign">+</span>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            className="dkp-table__row-input"
+                            placeholder="0"
+                            aria-label={`DKP to add to ${m.username}`}
+                            value={rowValue(m.discordId, "add")}
+                            onChange={(e) => setRowValue(m.discordId, "add", e.target.value)}
+                          />
+                          <button
+                            className="btn-secondary btn-secondary--sm"
+                            disabled={busyKey === `row-add:${m.discordId}` || !rowValue(m.discordId, "add")}
+                            onClick={() => adjustDkp([m.discordId], Number.parseInt(rowValue(m.discordId, "add"), 10), `row-add:${m.discordId}`)}
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </td>
+                      <td className="dkp-table__adjust-col">
+                        <div className="dkp-table__row-adjust">
+                          <span className="dkp-table__sign">−</span>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            className="dkp-table__row-input"
+                            placeholder="0"
+                            aria-label={`DKP to subtract from ${m.username}`}
+                            value={rowValue(m.discordId, "subtract")}
+                            onChange={(e) => setRowValue(m.discordId, "subtract", e.target.value)}
+                          />
+                          <button
+                            className="btn-secondary btn-secondary--sm"
+                            disabled={busyKey === `row-subtract:${m.discordId}` || !rowValue(m.discordId, "subtract")}
+                            onClick={() => adjustDkp([m.discordId], -Number.parseInt(rowValue(m.discordId, "subtract"), 10), `row-subtract:${m.discordId}`)}
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  )}
+                  {canAssignOfficers && (
+                    <td>
+                      {m.role !== "leader" && (
+                        m.role === "officer" ? (
+                          <button
+                            className="guild-member-row__kick"
+                            title="Remove officer"
+                            aria-label={`Remove ${m.username} as officer`}
+                            disabled={busyKey === `officer:${m.discordId}`}
+                            onClick={() => setOfficer(m.discordId, false)}
+                          >
+                            <Shield size={14} strokeWidth={1.5} />
+                          </button>
+                        ) : (
+                          <button
+                            className="guild-member-row__promote"
+                            title={officerCount >= officerCap ? `Officer slots full (${officerCap}/${officerCap})` : "Make officer"}
+                            aria-label={`Make ${m.username} an officer`}
+                            disabled={busyKey === `officer:${m.discordId}` || officerCount >= officerCap}
+                            onClick={() => setOfficer(m.discordId, true)}
+                          >
+                            <Crown size={14} strokeWidth={1.5} />
+                          </button>
+                        )
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {roster && roster.length > 0 && (
+        <div className="dkp-history">
+          <button className="dkp-history__toggle" onClick={() => setShowHistory((s) => !s)}>
+            {showHistory ? "Hide History" : `Show History (${log.length})`}
+          </button>
+          {showHistory && (
+            <div className="dkp-history__list">
+              {log.length === 0 && <p className="muted">No DKP adjustments yet.</p>}
+              {log.map((entry) => (
+                <div className="dkp-history__row" key={entry.id}>
+                  <span className="dkp-history__text">
+                    <strong>{entry.actorUsername}</strong> {entry.delta > 0 ? "added" : "subtracted"}{" "}
+                    <strong>{Math.abs(entry.delta)}</strong> {entry.delta > 0 ? "to" : "from"}{" "}
+                    <strong>{entry.targetUsername}</strong>
+                    {entry.reason && <span className="muted"> — {entry.reason}</span>}
+                  </span>
+                  <span className="dkp-history__time muted">{new Date(entry.createdAt).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

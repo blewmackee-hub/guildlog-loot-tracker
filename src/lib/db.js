@@ -29,11 +29,16 @@ export function query(text, params) {
   return getPool().query(text, params);
 }
 
+// Only called on a real Discord OAuth sign-in (see auth.js's jwt
+// callback - it checks `account && user`, which isn't present on a
+// plain session/token refresh), so last_login_at is a genuine "last
+// time they signed in" mark, not "last time they had a valid session" -
+// see the inactive-leader claim feature in src/lib/guilds.js.
 export async function upsertUser({ discordId, username, avatarUrl }) {
   await query(
-    `INSERT INTO users (discord_id, username, avatar_url)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (discord_id) DO UPDATE SET username = EXCLUDED.username, avatar_url = EXCLUDED.avatar_url`,
+    `INSERT INTO users (discord_id, username, avatar_url, last_login_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (discord_id) DO UPDATE SET username = EXCLUDED.username, avatar_url = EXCLUDED.avatar_url, last_login_at = now()`,
     [discordId, username, avatarUrl]
   );
 }

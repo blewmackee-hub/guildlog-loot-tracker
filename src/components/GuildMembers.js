@@ -75,7 +75,7 @@ export default function GuildMembers({ guildName, onDeleteGuild, onOwnerChanged 
   return (
     <div className="guild-members">
       <h3 className="panel-title">Guild Members</h3>
-      {error && <p className="auth-error">{error}</p>}
+      {error && <p className="auth-error" role="alert">{error}</p>}
       {!members && !error && <p className="muted">Loading…</p>}
       {members && members.length === 0 && <p className="muted">No members yet.</p>}
       {members && members.map((m, i) => (
@@ -108,11 +108,11 @@ export default function GuildMembers({ guildName, onDeleteGuild, onOwnerChanged 
           ) : (
             <div className="guild-member-row__actions">
               {!m.isOwner && (
-                <button className="guild-member-row__promote" title="Promote to owner" onClick={() => setConfirming({ type: "promote", discordId: m.discordId })}>
+                <button className="guild-member-row__promote" title="Promote to owner" aria-label={`Promote ${m.username} to owner`} onClick={() => setConfirming({ type: "promote", discordId: m.discordId })}>
                   <Crown size={15} strokeWidth={1.5} />
                 </button>
               )}
-              <button className="guild-member-row__kick" title="Remove member" onClick={() => setConfirming({ type: "kick", discordId: m.discordId })}>
+              <button className="guild-member-row__kick" title="Remove member" aria-label={`Remove ${m.username}`} onClick={() => setConfirming({ type: "kick", discordId: m.discordId })}>
                 <UserX size={15} strokeWidth={1.5} />
               </button>
             </div>
@@ -134,6 +134,9 @@ export default function GuildMembers({ guildName, onDeleteGuild, onOwnerChanged 
             </p>
             <input
               className="guild-form__input"
+              aria-label={`Type "${guildName}" to confirm deletion`}
+              autoComplete="off"
+              spellCheck={false}
               value={deleteTypedName}
               onChange={(e) => setDeleteTypedName(e.target.value)}
               placeholder={guildName}

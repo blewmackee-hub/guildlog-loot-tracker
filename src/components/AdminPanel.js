@@ -84,12 +84,14 @@ export default function AdminPanel() {
           <input
             className="search-row__input"
             placeholder="Search guild name…"
+            aria-label="Search guild name"
+            autoComplete="off"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
-        {error && <p className="auth-error">{error}</p>}
+        {error && <p className="auth-error" role="alert">{error}</p>}
         {!guilds && !error && <p className="muted">Loading…</p>}
         {guilds && guilds.length === 0 && <p className="muted">No guilds found.</p>}
 
@@ -99,6 +101,8 @@ export default function AdminPanel() {
               <div className="guild-member-row__confirm">
                 <input
                   className="guild-form__input"
+                  aria-label="Guild name"
+                  autoComplete="off"
                   autoFocus
                   value={renameDraft}
                   onChange={(e) => setRenameDraft(e.target.value)}
@@ -135,6 +139,7 @@ export default function AdminPanel() {
                   <button
                     className="guild-member-row__promote"
                     title="Rename guild"
+                    aria-label={`Rename ${g.name}`}
                     onClick={() => {
                       setRenaming(g.id);
                       setRenameDraft(g.name);
@@ -145,6 +150,7 @@ export default function AdminPanel() {
                   <button
                     className="guild-member-row__kick"
                     title="Delete guild"
+                    aria-label={`Delete ${g.name}`}
                     onClick={() => setConfirmingDelete(g.id)}
                   >
                     <Trash2 size={15} strokeWidth={1.5} />

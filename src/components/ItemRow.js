@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import RarityDot from "./RarityDot";
+import ItemIcon from "./ItemIcon";
 import { SLOTS, RARITIES } from "@/lib/gameData";
 import { slotsForGroup } from "@/lib/calculations";
 
@@ -18,6 +19,7 @@ export default function ItemRow({ item, onSelect, selected, index }) {
       }}
     >
       <RarityDot rarity={item.rarity} />
+      <ItemIcon item={item} />
       <span className="item-row__name">{item.name}</span>
       {item.levelRange && <span className="item-row__level">Lv {item.levelRange.max}</span>}
       <span className="item-row__slot">{item.isMaterial ? "Material" : item.isSkillCore ? "Skill Core" : slotLabel || ""}</span>

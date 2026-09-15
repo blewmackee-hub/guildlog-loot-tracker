@@ -1,5 +1,6 @@
-import { Hammer, Package, Info, Flame } from "lucide-react";
+import { Hammer, Package, Info, Flame, Sparkles } from "lucide-react";
 import RarityDot from "./RarityDot";
+import ItemIcon from "./ItemIcon";
 import { RARITIES, STAT_LABELS, SOURCE_ICON, unitFor, collapseUnifiedStats } from "@/lib/gameData";
 import { ITEMS, SETS, SOURCES, RECIPES, resolveStatValue, slotsForGroup } from "@/lib/calculations";
 
@@ -30,6 +31,7 @@ export default function ItemDetail({ item, wishlist, pendingSlot, onAddToWishlis
     <div className="detail">
       <div className="detail__header">
         <RarityDot rarity={item.rarity} />
+        <ItemIcon item={item} size={40} />
         <div>
           <h3>{item.name}</h3>
           <span className="detail__rarity" style={{ color: RARITIES[item.rarity].color }}>
@@ -113,6 +115,17 @@ export default function ItemDetail({ item, wishlist, pendingSlot, onAddToWishlis
           </ul>
         ) : item.isSkillCore ? (
           <p className="muted">Random drop from elite monsters, or from a craftable gamba box — no fixed source to list.</p>
+        ) : item.rarity === "heroic" ? (
+          <ul className="source-list">
+            <li>
+              <Sparkles size={14} strokeWidth={1.5} />
+              <span>Altar of Calanthia</span>
+            </li>
+            <li>
+              <Package size={14} strokeWidth={1.5} />
+              <span>Heroic Item Merchant</span>
+            </li>
+          </ul>
         ) : (
           <p className="muted">No known source yet.</p>
         )}

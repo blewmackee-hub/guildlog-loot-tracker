@@ -27,13 +27,22 @@ export const SLOTS = [
   { id: "brooch", label: "Brooch", group: "accessory", slotGroup: "brooch" },
 ];
 
+// Grade 51 items were scraped as "legendary" before any grade-61+ item
+// existed to reveal that T&L's real order is .../Epic/Heroic/Legendary -
+// grade 51 is Heroic. Renamed here and in the underlying item data;
+// true Legendary isn't in the dataset yet.
 export const RARITIES = {
   common: { label: "Common", color: "#8A8F98" },
   uncommon: { label: "Uncommon", color: "#5FB77E" },
   rare: { label: "Rare", color: "#4FA3E3" },
   epic: { label: "Epic", color: "#B879E8" },
-  legendary: { label: "Legendary", color: "#F2B84B" },
+  heroic: { label: "Heroic", color: "#F2B84B" },
 };
+
+// Descending - heroic first, common last - for sorting the Database
+// list. Not object key order (RARITIES above is ascending) since
+// that's used for display elsewhere and shouldn't change.
+export const RARITY_ORDER = ["heroic", "epic", "rare", "uncommon", "common"];
 
 /* Inheritance: lets a player move a higher item level onto a piece
    they've already sunk trait investment into, instead of re-trait-
@@ -55,11 +64,27 @@ export const STAT_GROUPS = [
   },
   {
     label: "Attack",
-    keys: ["attackSpeed", "atkSpeedPct", "rangeFlat", "rangePct", "bonusDamage", "offHandAtkChance", "blockChancePenetration", "speciesDamageBoost"],
+    keys: [
+      "attackSpeed", "atkSpeedPct", "rangeFlat", "rangePct", "bonusDamage", "offHandAtkChance", "blockChancePenetration", "speciesDamageBoost",
+      "animalDamageBonus", "constructDamageBonus", "humanoidDamageBonus", "undeadDamageBonus", "damageReductionPenetration",
+      // raw_* are the same stats under Questlog's un-normalized field
+      // names - a handful of items were scraped before the camelCase
+      // pass below ran, so both forms need a real label.
+      "raw_damage_reduction_penetration", "raw_bonus_creation_attack_power", "raw_bonus_undead_attack_power",
+      "raw_bonus_animal_attack_power", "raw_bonus_grankus_attack_power",
+    ],
     labels: {
       attackSpeed: "Attack Speed", atkSpeedPct: "Attack Speed", rangeFlat: "Range", rangePct: "Range",
       bonusDamage: "Bonus Damage", offHandAtkChance: "Off-Hand Weapon Attack Chance",
       blockChancePenetration: "Block Chance Penetration", speciesDamageBoost: "Species Damage Boost",
+      animalDamageBonus: "Wildkin Bonus Damage", constructDamageBonus: "Construct Bonus Damage",
+      humanoidDamageBonus: "Humanoid Bonus Damage", undeadDamageBonus: "Undead Bonus Damage",
+      damageReductionPenetration: "Damage Reduction Penetration",
+      raw_damage_reduction_penetration: "Damage Reduction Penetration",
+      raw_bonus_creation_attack_power: "Construct Bonus Damage",
+      raw_bonus_undead_attack_power: "Undead Bonus Damage",
+      raw_bonus_animal_attack_power: "Wildkin Bonus Damage",
+      raw_bonus_grankus_attack_power: "Grankus Bonus Damage",
     },
     units: { attackSpeed: "s", rangeFlat: "m" },
   },
@@ -79,14 +104,21 @@ export const STAT_GROUPS = [
   },
   {
     label: "Protection",
-    keys: ["damageReduction", "meleeDefense", "rangedDefense", "magicDefense", "meleeEvasion", "rangedEvasion", "magicEvasion", "meleeEndurance", "rangedEndurance", "magicEndurance", "meleeHeavyAtkEvasion", "rangedHeavyAtkEvasion", "magicHeavyAtkEvasion", "criticalDamageResistPct", "heavyAtkDamageResistPct"],
+    keys: [
+      "damageReduction", "meleeDefense", "rangedDefense", "magicDefense", "meleeEvasion", "rangedEvasion", "magicEvasion", "meleeEndurance", "rangedEndurance", "magicEndurance", "meleeHeavyAtkEvasion", "rangedHeavyAtkEvasion", "magicHeavyAtkEvasion", "criticalDamageResistPct", "heavyAtkDamageResistPct",
+      "speciesDamageResist", "shieldBlockChancePct",
+      "raw_shield_block_chance", "raw_all_species_damage_resistance",
+    ],
     labels: {
       damageReduction: "Damage Reduction", meleeDefense: "Melee Defense", rangedDefense: "Ranged Defense", magicDefense: "Magic Defense",
       meleeEvasion: "Melee Evasion", rangedEvasion: "Ranged Evasion", magicEvasion: "Magic Evasion",
       meleeEndurance: "Melee Endurance", rangedEndurance: "Ranged Endurance", magicEndurance: "Magic Endurance",
       meleeHeavyAtkEvasion: "Melee Heavy Attack Evasion", rangedHeavyAtkEvasion: "Ranged Heavy Attack Evasion", magicHeavyAtkEvasion: "Magic Heavy Attack Evasion",
       criticalDamageResistPct: "Critical Damage Resistance", heavyAtkDamageResistPct: "Heavy Attack Damage Resistance",
+      speciesDamageResist: "Species Damage Resistance", shieldBlockChancePct: "Block Chance",
+      raw_shield_block_chance: "Block Chance", raw_all_species_damage_resistance: "All Species Damage Resistance",
     },
+    units: { shieldBlockChancePct: "%", raw_shield_block_chance: "%" },
   },
   {
     label: "Resources",
@@ -104,11 +136,16 @@ export const STAT_GROUPS = [
   },
   {
     label: "Skills",
-    keys: ["skillDamageBoost", "cooldownSpeedPct", "healingPct", "buffDurationPct", "debuffDurationPct", "amitoiHealingPct"],
+    keys: [
+      "skillDamageBoost", "cooldownSpeedPct", "healingPct", "buffDurationPct", "debuffDurationPct", "amitoiHealingPct", "healOverTimePct",
+      "raw_continuous_heal_modifier",
+    ],
     labels: {
       skillDamageBoost: "Skill Damage Boost", cooldownSpeedPct: "Cooldown Speed", healingPct: "Healing",
       buffDurationPct: "Buff Duration", debuffDurationPct: "Debuff Duration", amitoiHealingPct: "Amitoi Healing",
+      healOverTimePct: "Skill Healing over Time", raw_continuous_heal_modifier: "Skill Healing over Time",
     },
+    units: { raw_continuous_heal_modifier: "%" },
   },
   {
     label: "Resistance",
@@ -157,8 +194,24 @@ export const STAT_GROUPS = [
   },
   {
     label: "Directional",
-    keys: ["sideHitChance", "backCriticalHit", "backHeavyAtkChance", "backHitChance"],
-    labels: { sideHitChance: "Side Hit Chance", backCriticalHit: "Back Critical Hit", backHeavyAtkChance: "Back Heavy Attack Chance", backHitChance: "Back Hit Chance" },
+    keys: [
+      "sideHitChance", "backCriticalHit", "backHeavyAtkChance", "backHitChance",
+      "frontEndurance", "frontHeavyAtkEvasion", "frontEvasion", "frontDamageReduction",
+      "sideEndurance", "sideHeavyAtk", "sideHeavyAtkEvasion", "sideEvasion", "sideDamageReduction",
+      "raw_front_all_evasion", "raw_side_all_evasion", "raw_front_damage_reduction", "raw_side_damage_reduction",
+      "raw_side_all_double_attack", "raw_front_all_critical_defense", "raw_side_all_critical_defense",
+      "raw_front_all_double_defense", "raw_side_all_double_defense",
+    ],
+    labels: {
+      sideHitChance: "Side Hit Chance", backCriticalHit: "Back Critical Hit", backHeavyAtkChance: "Back Heavy Attack Chance", backHitChance: "Back Hit Chance",
+      frontEndurance: "Front Endurance", frontHeavyAtkEvasion: "Front Heavy Attack Evasion", frontEvasion: "Front Evasion", frontDamageReduction: "Front Damage Reduction",
+      sideEndurance: "Side Endurance", sideHeavyAtk: "Side Heavy Attack Chance", sideHeavyAtkEvasion: "Side Heavy Attack Evasion", sideEvasion: "Side Evasion", sideDamageReduction: "Side Damage Reduction",
+      raw_front_all_evasion: "Front Evasion", raw_side_all_evasion: "Side Evasion",
+      raw_front_damage_reduction: "Front Damage Reduction", raw_side_damage_reduction: "Side Damage Reduction",
+      raw_side_all_double_attack: "Side Heavy Attack Chance",
+      raw_front_all_critical_defense: "Front Critical Hit Defense", raw_side_all_critical_defense: "Side Critical Hit Defense",
+      raw_front_all_double_defense: "Front Heavy Attack Defense", raw_side_all_double_defense: "Side Heavy Attack Defense",
+    },
   },
   {
     label: "Misc",
@@ -179,6 +232,21 @@ export function unitFor(key) {
 }
 
 export const SOURCE_ICON = { boss: Skull, dungeon: Shield, worlddrop: Sparkles, vendor: Package, craft: Hammer };
+
+// Every class in the game, for the Party Planner's per-slot role
+// dropdown (PartyPlannerTab.js) - alphabetical, no in-game grouping
+// (tank/dps/healer) since T&L classes are weapon-pair combos rather
+// than fixed archetypes.
+export const CLASS_ROLES = [
+  "Archon", "Battleweaver", "Berserker", "Cavalier", "Crucifix", "Crusader", "Darkblighter", "Destroyer",
+  "Disciple", "Enigma", "Eradicator", "Fury", "Gladiator", "Guardian", "Impaler", "Infiltrator", "Invocator",
+  "Juggernaught", "Justicar", "Liberator", "Lunarch", "Mauler", "Mobilist", "Oracle", "Outrider", "Paladin",
+  "Polaris", "Predator", "Raider", "Ranger", "Ravager", "Scorpion", "Scout", "Scryer", "Seeker", "Sentinel",
+  "Shadowdancer", "Shrike", "Soulcrusher", "Spellblade", "Steelheart", "Templar", "Tormentor", "Voidlance", "Warden",
+];
+
+export const PARTY_GROUP_COUNT = 10;
+export const PARTY_SLOT_COUNT = 6;
 
 /* The three melee/ranged/magic (and their PvP-parallel) keys that a
    "plain" unified stat (e.g. Questlog's raw all_critical_attack)

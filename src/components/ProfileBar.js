@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { LogOut, ShieldAlert } from "lucide-react";
+import Modal from "./Modal";
 
 /* Characters are scoped to a guild + Discord account (src/lib/guilds.js),
    so switching here just points the active_character cookie at a
@@ -33,8 +34,13 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
           <span className="profile-bar__label">{guildName} ·</span>
         </span>
       )}
-      <span className="profile-bar__label">Playing as</span>
-      <select className="profile-bar__select" value={activeCharacterId} onChange={(e) => onSwitch(e.target.value)}>
+      <span className="profile-bar__label" id="profile-bar-character-label">Playing as</span>
+      <select
+        className="profile-bar__select"
+        aria-labelledby="profile-bar-character-label"
+        value={activeCharacterId}
+        onChange={(e) => onSwitch(e.target.value)}
+      >
         {characters.map((c) => (
           <option key={c.id} value={c.id}>{c.name}</option>
         ))}
@@ -43,9 +49,11 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
         <>
           <input
             className="profile-bar__input"
+            aria-label="New character name"
+            autoComplete="off"
             autoFocus
             value={draft}
-            placeholder="Name"
+            placeholder="Name…"
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") submit();
@@ -58,23 +66,38 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
       ) : (
         <button className="btn-secondary btn-secondary--sm" onClick={() => setAdding(true)}>+ New</button>
       )}
-      {confirmingLeave ? (
-        <>
-          <span className="profile-bar__leave-warning">Leave {guildName}? This deletes your character(s) here.</span>
-          <button className="profile-bar__leave-confirm" onClick={onLeaveGuild}>Leave</button>
-          <button className="btn-secondary btn-secondary--sm" onClick={() => setConfirmingLeave(false)}>Cancel</button>
-        </>
-      ) : (
-        <button className="btn-secondary btn-secondary--sm" onClick={() => setConfirmingLeave(true)}>Leave Guild</button>
+      <button className="btn-secondary btn-secondary--sm profile-bar__leave-trigger" onClick={() => setConfirmingLeave(true)}>
+        Leave Guild
+      </button>
+      {confirmingLeave && (
+        <Modal title="Leave Guild?" onClose={() => setConfirmingLeave(false)}>
+          <p className="profile-bar__leave-warning">
+            Are you sure you want to leave {guildName}? This action is permanent, and all data for your character(s)
+            in this guild will be erased.
+          </p>
+          <div className="modal-panel__actions">
+            <button className="btn-secondary btn-secondary--sm" onClick={() => setConfirmingLeave(false)}>Cancel</button>
+            <button
+              className="profile-bar__leave-confirm"
+              onClick={() => {
+                setConfirmingLeave(false);
+                onLeaveGuild();
+              }}
+            >
+              Leave Guild
+            </button>
+          </div>
+        </Modal>
       )}
       {isSiteAdmin && (
-        <Link href="/admin" className="profile-bar__signout" title="Guild moderation">
+        <Link href="/admin" className="profile-bar__signout" title="Guild moderation" aria-label="Guild moderation">
           <ShieldAlert size={15} strokeWidth={1.5} />
         </Link>
       )}
       <button
-        className="profile-bar__signout"
+        className="profile-bar__signout profile-bar__signout--danger"
         title="Sign out"
+        aria-label="Sign out"
         onClick={() => signOut({ redirectTo: "/login" })}
       >
         <LogOut size={15} strokeWidth={1.5} />

@@ -1,5 +1,6 @@
 import { X, Info } from "lucide-react";
 import RarityDot from "./RarityDot";
+import ItemIcon from "./ItemIcon";
 import { SLOTS } from "@/lib/gameData";
 import { ITEMS, slotsForGroup } from "@/lib/calculations";
 
@@ -13,7 +14,7 @@ export default function WishlistTab({ savedItems, wishlist, onEquip, onRemove, o
 
   if (entries.length === 0) {
     return (
-      <div className="detail-empty">
+      <div className="detail-empty panel">
         <Info size={22} strokeWidth={1.3} />
         <p>Nothing saved yet — use &quot;Save to Wishlist&quot; on any item in the Database to start comparing options for a slot.</p>
       </div>
@@ -48,9 +49,10 @@ export default function WishlistTab({ savedItems, wishlist, onEquip, onRemove, o
               <div className="wishlist-entry scan-row" key={item.id} style={{ animationDelay: `${Math.min(i * 30, 400)}ms` }}>
                 <div className="wishlist-entry__top">
                   <RarityDot rarity={item.rarity} />
+                  <ItemIcon item={item} />
                   <span className="wishlist-entry__name">{item.name}</span>
                   {isEquipped && <span className="wishlist-entry__badge">Equipped</span>}
-                  <button className="slot__remove" onClick={() => onRemove(item.id)} title="Remove from wishlist">
+                  <button className="slot__remove" onClick={() => onRemove(item.id)} title="Remove from wishlist" aria-label={`Remove ${item.name} from wishlist`}>
                     <X size={12} strokeWidth={2} />
                   </button>
                 </div>
@@ -58,6 +60,7 @@ export default function WishlistTab({ savedItems, wishlist, onEquip, onRemove, o
                   <div className="slot__level">
                     <input
                       type="range"
+                      aria-label={`${item.name} level`}
                       min={item.levelRange.min}
                       max={item.levelRange.max}
                       value={entry.level ?? item.levelRange.max}
