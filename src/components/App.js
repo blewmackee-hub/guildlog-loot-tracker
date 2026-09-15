@@ -66,6 +66,19 @@ export default function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileNavTop, setMobileNavTop] = useState(0);
   const headerRef = useRef(null);
+  const detailPanelRef = useRef(null);
+
+  // Database/Build's list+detail panels sit side by side on desktop -
+  // both always in view, nothing to scroll to. Below the 860px
+  // breakpoint where .layout--split collapses to one column (see
+  // globals.css), the detail panel ends up stacked below a scrollable
+  // item list instead, easy to miss after tapping an item. Only jump
+  // to it there - desktop shouldn't hijack the user's scroll position.
+  useEffect(() => {
+    if (!selectedItem || !detailPanelRef.current) return;
+    if (window.innerWidth > 860) return;
+    detailPanelRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedItem]);
 
   // Portaled to document.body (see Modal.js for the same trick, same
   // reason): .app__header sets backdrop-filter, which makes it a
@@ -450,7 +463,7 @@ export default function App() {
             </div>
           </div>
           <div className="layout-divider" />
-          <div className="panel panel--detail">
+          <div className="panel panel--detail" ref={detailPanelRef}>
             <ItemDetail
               item={selectedItem}
               wishlist={wishlist}
