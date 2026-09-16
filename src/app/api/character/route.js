@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireDiscordId, requireActiveGuild, errorResponse } from "@/lib/apiHelpers";
 import { getActiveCharacter, setActiveCharacter } from "@/lib/guildSession";
 import { saveCharacterData, getOrCreateCharacter, getCharacterContext } from "@/lib/guilds";
 import { isAdmin } from "@/lib/admin";
@@ -11,16 +11,17 @@ import { isAdmin } from "@/lib/admin";
 // tells the client whether to show the /admin link - the route
 // itself re-checks isAdmin server-side regardless.
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.discordId) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  }
-  const isSiteAdmin = isAdmin(session.user.discordId);
-  const active = await getActiveCharacter();
-  if (!active) return NextResponse.json({ character: null, guild: null, characters: [], isSiteAdmin });
+  try {
+    const discordId = await requireDiscordId();
+    const isSiteAdmin = isAdmin(discordId);
+    const active = await getActiveCharacter();
+    if (!active) return NextResponse.json({ character: null, guild: null, characters: [], isSiteAdmin });
 
-  const ctx = await getCharacterContext({ discordId: session.user.discordId, characterId: active.characterId });
-  return NextResponse.json(ctx ? { ...ctx, isSiteAdmin } : { character: null, guild: null, characters: [], isSiteAdmin });
+    const ctx = await getCharacterContext({ discordId, characterId: active.characterId });
+    return NextResponse.json(ctx ? { ...ctx, isSiteAdmin } : { character: null, guild: null, characters: [], isSiteAdmin });
+  } catch (e) {
+    return errorResponse(e);
+  }
 }
 
 // POST /api/character { name } - create a new alt character in the
@@ -29,23 +30,17 @@ export async function GET() {
 // so re-submitting an existing name just switches to it instead of
 // erroring.
 export async function POST(request) {
-  const session = await auth();
-  if (!session?.user?.discordId) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  try {
+    const discordId = await requireDiscordId();
+    const active = await requireActiveGuild("No active guild - join one first.");
+    const body = await request.json();
+    const character = await getOrCreateCharacter({ discordId, guildId: active.guildId, name: body.name });
+    await setActiveCharacter({ guildId: active.guildId, characterId: character.id });
+    const ctx = await getCharacterContext({ discordId, characterId: character.id });
+    return NextResponse.json(ctx);
+  } catch (e) {
+    return errorResponse(e);
   }
-  const active = await getActiveCharacter();
-  if (!active) {
-    return NextResponse.json({ error: "No active guild - join one first." }, { status: 400 });
-  }
-  const body = await request.json();
-  const character = await getOrCreateCharacter({
-    discordId: session.user.discordId,
-    guildId: active.guildId,
-    name: body.name,
-  });
-  await setActiveCharacter({ guildId: active.guildId, characterId: character.id });
-  const ctx = await getCharacterContext({ discordId: session.user.discordId, characterId: character.id });
-  return NextResponse.json(ctx);
 }
 
 // PUT /api/character { build, wishlist } - saves onto whichever
@@ -53,20 +48,18 @@ export async function POST(request) {
 // re-checked server-side in saveCharacterData, not just trusted from
 // the cookie.
 export async function PUT(request) {
-  const session = await auth();
-  if (!session?.user?.discordId) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  try {
+    const discordId = await requireDiscordId();
+    const active = await requireActiveGuild("No active character - join a guild first.");
+    const body = await request.json();
+    await saveCharacterData({
+      characterId: active.characterId,
+      discordId,
+      build: body.build ?? {},
+      wishlist: body.wishlist ?? {},
+    });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return errorResponse(e);
   }
-  const active = await getActiveCharacter();
-  if (!active) {
-    return NextResponse.json({ error: "No active character - join a guild first." }, { status: 400 });
-  }
-  const body = await request.json();
-  await saveCharacterData({
-    characterId: active.characterId,
-    discordId: session.user.discordId,
-    build: body.build ?? {},
-    wishlist: body.wishlist ?? {},
-  });
-  return NextResponse.json({ ok: true });
 }

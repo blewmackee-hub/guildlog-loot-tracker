@@ -190,18 +190,22 @@ function mostRecentOccurrence(weekday, now = new Date()) {
 // from listGuildRoster, before the roster is read back). Guarded by
 // dkp_decay_last_applied so opening the tab several times on/after
 // decay day only decays the guild once per week.
+// Returns {pct, affected} the one time it actually fires (so the DKP
+// tab can tell members balances just moved and why), null every other
+// load once dkp_decay_last_applied has caught up.
 async function applyDueDecay(guild) {
-  if (!guild.dkpDecayPct || guild.dkpDecayWeekday === null || guild.dkpDecayWeekday === undefined) return;
+  if (!guild.dkpDecayPct || guild.dkpDecayWeekday === null || guild.dkpDecayWeekday === undefined) return null;
   const due = mostRecentOccurrence(guild.dkpDecayWeekday);
   const lastApplied = guild.dkpDecayLastApplied ? new Date(guild.dkpDecayLastApplied) : null;
-  if (lastApplied && lastApplied >= due) return;
+  if (lastApplied && lastApplied >= due) return null;
 
   const factor = 1 - guild.dkpDecayPct / 100;
-  await query(
+  const res = await query(
     `UPDATE guild_memberships SET dkp_total = round((dkp_total * $1)::numeric)::integer WHERE guild_id = $2`,
     [factor, guild.id]
   );
   await query(`UPDATE guilds SET dkp_decay_last_applied = now() WHERE id = $1`, [guild.id]);
+  return { pct: guild.dkpDecayPct, affected: res.rowCount };
 }
 
 // Officer/leader gate - same as adjustDkp, since this is a DKP setting
@@ -231,7 +235,7 @@ export async function setDecaySettings({ guildId, requesterDiscordId, pct, weekd
 export async function listGuildRoster({ guildId }) {
   const guild = await getGuildById(guildId);
   if (!guild) throw new HttpError(404, "Guild not found.");
-  await applyDueDecay(guild);
+  const decayApplied = await applyDueDecay(guild);
 
   await query(
     `INSERT INTO guild_memberships (guild_id, discord_id)
@@ -263,6 +267,7 @@ export async function listGuildRoster({ guildId }) {
     roster,
     officerCap: OFFICER_CAP,
     decay: { pct: guild.dkpDecayPct, weekday: guild.dkpDecayWeekday },
+    decayApplied,
   };
 }
 

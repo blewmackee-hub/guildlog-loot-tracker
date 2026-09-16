@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Crown, Shield, Check } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Crown, Shield, Check, X } from "lucide-react";
+import { postJSON } from "@/lib/apiClient";
 
 const WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -106,6 +107,15 @@ export default function DkpTab() {
   const [bulkAdd, setBulkAdd] = useState("");
   const [bulkSubtract, setBulkSubtract] = useState("");
   const [bulkReason, setBulkReason] = useState("");
+  const [decayBanner, setDecayBanner] = useState(null);
+  // discordId -> "good" | "bad", cleared a moment after a row's total
+  // changes so the cell gets a brief flash instead of just snapping to
+  // its new value with no feedback.
+  const [flash, setFlash] = useState({});
+  // The most recent adjustment, kept around for a few seconds so it can
+  // be reversed with one click instead of re-typing the opposite delta.
+  const [undo, setUndo] = useState(null);
+  const undoTimer = useRef(null);
 
   function load() {
     fetch("/api/guild/dkp")
@@ -116,9 +126,32 @@ export default function DkpTab() {
         setMyRole(data.myRole);
         setOfficerCap(data.officerCap);
         setDecay(data.decay);
+        if (data.decayApplied) setDecayBanner(data.decayApplied);
         setLog(data.log || []);
       })
       .catch((e) => setError(e.message));
+  }
+
+  function flashRows(discordIds, sign) {
+    setFlash((f) => ({ ...f, ...Object.fromEntries(discordIds.map((id) => [id, sign])) }));
+    setTimeout(() => {
+      setFlash((f) => {
+        const next = { ...f };
+        discordIds.forEach((id) => delete next[id]);
+        return next;
+      });
+    }, 700);
+  }
+
+  function offerUndo(discordIds, delta, reason) {
+    clearTimeout(undoTimer.current);
+    setUndo({ discordIds, delta, reason });
+    undoTimer.current = setTimeout(() => setUndo(null), 8000);
+  }
+
+  function dismissUndo() {
+    clearTimeout(undoTimer.current);
+    setUndo(null);
   }
 
   useEffect(load, []);
@@ -127,13 +160,7 @@ export default function DkpTab() {
     setBusyKey("decay");
     setError(null);
     try {
-      const res = await fetch("/api/guild/decay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pct, weekday }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      await postJSON("/api/guild/decay", { pct, weekday });
       load();
     } catch (e) {
       setError(e.message);
@@ -161,18 +188,14 @@ export default function DkpTab() {
     else setSelected(new Set(roster.map((m) => m.discordId)));
   }
 
-  async function adjustDkp(discordIds, delta, busyId, reason) {
+  async function adjustDkp(discordIds, delta, busyId, reason, { offersUndo = true } = {}) {
     if (!Number.isInteger(delta) || delta === 0 || discordIds.length === 0) return;
     setBusyKey(busyId);
     setError(null);
     try {
-      const res = await fetch("/api/guild/dkp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ discordIds, delta, reason }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      await postJSON("/api/guild/dkp", { discordIds, delta, reason });
+      flashRows(discordIds, delta > 0 ? "good" : "bad");
+      if (offersUndo) offerUndo(discordIds, delta, reason);
       load();
     } catch (e) {
       setError(e.message);
@@ -181,17 +204,18 @@ export default function DkpTab() {
     }
   }
 
+  function undoLastAction() {
+    if (!undo) return;
+    const { discordIds, delta, reason } = undo;
+    dismissUndo();
+    adjustDkp(discordIds, -delta, "undo", `Undo: ${reason || "adjustment"}`, { offersUndo: false });
+  }
+
   async function setOfficer(discordId, makeOfficer) {
     setBusyKey(`officer:${discordId}`);
     setError(null);
     try {
-      const res = await fetch("/api/guild/officers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ discordId, makeOfficer }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      await postJSON("/api/guild/officers", { discordId, makeOfficer });
       load();
     } catch (e) {
       setError(e.message);
@@ -216,6 +240,25 @@ export default function DkpTab() {
         )}
       </div>
       {error && <p className="auth-error" role="alert">{error}</p>}
+      {decayBanner && (
+        <div className="dkp-decay-banner">
+          <span>
+            Weekly decay applied: −{decayBanner.pct}% to {decayBanner.affected} member{decayBanner.affected === 1 ? "" : "s"}.
+          </span>
+          <button className="dkp-decay-banner__dismiss" onClick={() => setDecayBanner(null)} aria-label="Dismiss">
+            <X size={12} strokeWidth={2} />
+          </button>
+        </div>
+      )}
+      {undo && (
+        <div className="dkp-undo-banner">
+          <span>{undo.delta > 0 ? "Added" : "Subtracted"} {Math.abs(undo.delta)} DKP.</span>
+          <button className="btn-secondary btn-secondary--sm" onClick={undoLastAction}>Undo</button>
+          <button className="dkp-decay-banner__dismiss" onClick={dismissUndo} aria-label="Dismiss">
+            <X size={12} strokeWidth={2} />
+          </button>
+        </div>
+      )}
       {!roster && !error && <p className="muted">Loading…</p>}
       {roster && roster.length === 0 && <p className="muted">No members yet.</p>}
       {canAssignOfficers && (
@@ -310,8 +353,12 @@ export default function DkpTab() {
               </tr>
             </thead>
             <tbody>
-              {roster.map((m) => (
-                <tr key={m.discordId} className={selected.has(m.discordId) ? "dkp-table__row--selected" : ""}>
+              {roster.map((m, i) => (
+                <tr
+                  key={m.discordId}
+                  className={`scan-row ${selected.has(m.discordId) ? "dkp-table__row--selected" : ""}`}
+                  style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}
+                >
                   {canEdit && (
                     <td>
                       <button
@@ -332,7 +379,9 @@ export default function DkpTab() {
                       {m.role === "officer" && <span className="dkp-row__officer-badge">Officer</span>}
                     </span>
                   </td>
-                  <td className="dkp-table__total">{m.dkpTotal}</td>
+                  <td className={`dkp-table__total ${flash[m.discordId] ? `dkp-table__total--flash-${flash[m.discordId]}` : ""}`}>
+                    {m.dkpTotal}
+                  </td>
                   {canEdit && (
                     <>
                       <td className="dkp-table__adjust-col">
@@ -350,7 +399,7 @@ export default function DkpTab() {
                           <button
                             className="btn-secondary btn-secondary--sm dkp-apply-btn"
                             disabled={busyKey === `row-add:${m.discordId}` || !rowValue(m.discordId, "add")}
-                            onClick={() => adjustDkp([m.discordId], Number.parseInt(rowValue(m.discordId, "add"), 10), `row-add:${m.discordId}`)}
+                            onClick={() => adjustDkp([m.discordId], Number.parseInt(rowValue(m.discordId, "add"), 10), `row-add:${m.discordId}`, bulkReason)}
                             title="Apply"
                           >
                             <Check size={12} strokeWidth={3} className="dkp-apply-btn__icon" />
@@ -373,7 +422,7 @@ export default function DkpTab() {
                           <button
                             className="btn-secondary btn-secondary--sm dkp-apply-btn"
                             disabled={busyKey === `row-subtract:${m.discordId}` || !rowValue(m.discordId, "subtract")}
-                            onClick={() => adjustDkp([m.discordId], -Number.parseInt(rowValue(m.discordId, "subtract"), 10), `row-subtract:${m.discordId}`)}
+                            onClick={() => adjustDkp([m.discordId], -Number.parseInt(rowValue(m.discordId, "subtract"), 10), `row-subtract:${m.discordId}`, bulkReason)}
                             title="Apply"
                           >
                             <Check size={12} strokeWidth={3} className="dkp-apply-btn__icon" />
@@ -428,6 +477,9 @@ export default function DkpTab() {
               {log.map((entry) => (
                 <div className="dkp-history__row" key={entry.id}>
                   <span className="dkp-history__text">
+                    <span className={`dkp-history__delta ${entry.delta > 0 ? "dkp-history__delta--good" : "dkp-history__delta--bad"}`}>
+                      {entry.delta > 0 ? "+" : "−"}{Math.abs(entry.delta)}
+                    </span>{" "}
                     <strong>{entry.actorUsername}</strong> {entry.delta > 0 ? "added" : "subtracted"}{" "}
                     <strong>{Math.abs(entry.delta)}</strong> {entry.delta > 0 ? "to" : "from"}{" "}
                     <strong>{entry.targetUsername}</strong>

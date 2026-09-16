@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { UserX, Crown } from "lucide-react";
+import { postJSON } from "@/lib/apiClient";
 
 /* Owner-only roster (App.js only renders this tab when isGuildOwner).
    The server re-checks ownership on every call regardless - this is
@@ -35,13 +36,7 @@ export default function GuildMembers({ guildName, onDeleteGuild, onOwnerChanged 
     setBusyKey(`kick:${discordId}`);
     setError(null);
     try {
-      const res = await fetch("/api/guild/members/kick", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ discordId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      await postJSON("/api/guild/members/kick", { discordId });
       setConfirming(null);
       load();
     } catch (e) {
@@ -55,13 +50,7 @@ export default function GuildMembers({ guildName, onDeleteGuild, onOwnerChanged 
     setBusyKey(`promote:${discordId}`);
     setError(null);
     try {
-      const res = await fetch("/api/guild/members/transfer-owner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ discordId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      await postJSON("/api/guild/members/transfer-owner", { discordId });
       setConfirming(null);
       load();
       onOwnerChanged?.();

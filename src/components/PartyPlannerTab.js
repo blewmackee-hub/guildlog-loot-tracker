@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Camera } from "lucide-react";
 import { CLASS_ROLES, PARTY_GROUP_COUNT, PARTY_SLOT_COUNT } from "@/lib/gameData";
+import { postJSON } from "@/lib/apiClient";
 import CustomSelect from "./CustomSelect";
 import Modal from "./Modal";
 
@@ -109,19 +110,9 @@ export default function PartyPlannerTab() {
     setBusy(true);
     setError(null);
     try {
-      const res = selectedId
-        ? await fetch(`/api/guild/parties/${selectedId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: boardName, groups }),
-          })
-        : await fetch("/api/guild/parties", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: boardName, groups }),
-          });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      const data = selectedId
+        ? await postJSON(`/api/guild/parties/${selectedId}`, { name: boardName, groups }, "PUT")
+        : await postJSON("/api/guild/parties", { name: boardName, groups });
       const list = await refreshList();
       const fresh = list.find((t) => t.id === data.template.id);
       if (fresh) selectTemplate(fresh);
@@ -136,13 +127,7 @@ export default function PartyPlannerTab() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/guild/parties", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `${boardName || "Untitled"} Copy`, groups }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      const data = await postJSON("/api/guild/parties", { name: `${boardName || "Untitled"} Copy`, groups });
       const list = await refreshList();
       const fresh = list.find((t) => t.id === data.template.id);
       if (fresh) selectTemplate(fresh);
@@ -157,9 +142,7 @@ export default function PartyPlannerTab() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/guild/parties/${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      await postJSON(`/api/guild/parties/${id}`, null, "DELETE");
       const list = await refreshList();
       if (id === selectedId) {
         if (list.length > 0) selectTemplate(list[0]);
@@ -257,7 +240,7 @@ export default function PartyPlannerTab() {
           <p className="muted party-planner__view-note">Viewing only — officers and the guild leader can edit party groups.</p>
         )}
 
-        <div className="party-planner__groups">
+        <div className="party-planner__groups" key={selectedId ?? "new"}>
           {groups.map((group, gi) => (
             <div className="party-planner__group" key={gi}>
               {canEdit ? (

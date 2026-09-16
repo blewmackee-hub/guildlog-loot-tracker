@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireDiscordId, errorResponse } from "@/lib/apiHelpers";
 import { getActiveCharacter } from "@/lib/guildSession";
 import { getGuildWishlistTally } from "@/lib/guilds";
 
@@ -10,14 +10,13 @@ import { getGuildWishlistTally } from "@/lib/guilds";
 // counts only, never whose wishlist an item came from, so there's
 // nothing here more sensitive than "this many people want this."
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.discordId) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  try {
+    await requireDiscordId();
+    const active = await getActiveCharacter();
+    if (!active) return NextResponse.json({ tally: {} });
+    const tally = await getGuildWishlistTally({ guildId: active.guildId });
+    return NextResponse.json({ tally });
+  } catch (e) {
+    return errorResponse(e);
   }
-  const active = await getActiveCharacter();
-  if (!active) {
-    return NextResponse.json({ tally: {} });
-  }
-  const tally = await getGuildWishlistTally({ guildId: active.guildId });
-  return NextResponse.json({ tally });
 }

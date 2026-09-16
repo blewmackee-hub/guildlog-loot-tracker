@@ -34,9 +34,9 @@ export const SLOTS = [
 export const RARITIES = {
   common: { label: "Common", color: "#8A8F98" },
   uncommon: { label: "Uncommon", color: "#5FB77E" },
-  rare: { label: "Rare", color: "#4FA3E3" },
-  epic: { label: "Epic", color: "#B879E8" },
-  heroic: { label: "Heroic", color: "#F2B84B" },
+  rare: { label: "Rare", color: "#5b8fae" },
+  epic: { label: "Epic", color: "#8f6fbd" },
+  heroic: { label: "Heroic", color: "#cf9a4e" },
 };
 
 // Descending - heroic first, common last - for sorting the Database

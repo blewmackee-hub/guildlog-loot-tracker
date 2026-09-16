@@ -45,3 +45,7 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Impeccable design-skill runtime/session state (config.json and
+# design.json are durable project config and stay tracked)
+.impeccable/live/

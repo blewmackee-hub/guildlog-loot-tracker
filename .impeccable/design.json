@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-15T00:00:00Z",
+  "title": "Design System: GuildLog",
+  "extensions": {
+    "colorMeta": {
+      "worn-brass": { "role": "primary", "displayName": "Worn Brass", "canonical": "#cf9a4e", "tonalRamp": ["#3a2c17", "#5a4322", "#7d5a24", "#8a6428", "#c08f45", "#cf9a4e", "#e0ad5f", "#f2d296"] },
+      "ink-bright": { "role": "neutral", "displayName": "Ink Bright", "canonical": "#f0e4cd" },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#e3d8c4" },
+      "surface-card": { "role": "neutral", "displayName": "Surface Card", "canonical": "#241f1b" },
+      "surface-well": { "role": "neutral", "displayName": "Surface Well", "canonical": "#171310" },
+      "danger": { "role": "status", "displayName": "Danger", "canonical": "#c96f6f" },
+      "good": { "role": "status", "displayName": "Good", "canonical": "#8a9b7c" },
+      "rarity-rare": { "role": "rarity", "displayName": "Rare", "canonical": "#5b8fae" },
+      "rarity-epic": { "role": "rarity", "displayName": "Epic", "canonical": "#8f6fbd" },
+      "rarity-heroic": { "role": "rarity", "displayName": "Heroic", "canonical": "#cf9a4e" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display (Newsreader)", "purpose": "Brand wordmark and panel titles only." },
+      "ui": { "displayName": "Body/UI (Archivo)", "purpose": "All functional text: buttons, rows, tables, labels." },
+      "mono": { "displayName": "Mono (JetBrains Mono)", "purpose": "Tallied numeric values, primarily DKP totals." }
+    },
+    "shadows": [
+      { "name": "panel-lip", "value": "inset 0 1.5px 0 rgba(255,250,238,.42), inset 1px 0 0 rgba(255,250,238,.12), inset -1px 0 0 rgba(0,0,0,.3), inset 0 -1px 0 rgba(0,0,0,.45), 0 1px 0 rgba(255,250,238,.06), 0 16px 34px -22px #000", "purpose": "Standard glass-panel edge highlight + soft cast shadow." },
+      { "name": "button-press", "value": "0 3px 0 var(--accent-under)", "purpose": "Offset shadow reading as a raised, pressable control." },
+      { "name": "modal-cast", "value": "0 24px 60px -30px rgba(0,0,0,.9)", "purpose": "Deep soft shadow for elements floating above the whole page (modals, auth card)." }
+    ],
+    "motion": [
+      { "name": "control-transition", "value": "all .14s ease", "purpose": "Default hover/active transition for buttons, chips, item rows." },
+      { "name": "sheen", "value": "sheen 5s ease-in-out infinite", "purpose": "Slow animated gradient sweep across the primary button." }
+    ],
+    "breakpoints": [
+      { "name": "split-collapse", "value": "860px" },
+      { "name": "mobile", "value": "700px" },
+      { "name": "compact", "value": "480px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one high-emphasis action per view. Animated brass sheen, dark ink text, offset press shadow.",
+      "html": "<button class=\"ds-btn-primary\">Apply Selected</button>",
+      "css": ".ds-btn-primary { padding: 11px 22px; font: 600 13px/1 Archivo, system-ui, sans-serif; letter-spacing: .04em; color: #231d17; border: 1px solid var(--accent-edge, #8a6428); border-radius: 999px; cursor: pointer; background: linear-gradient(100deg, var(--accent-lo, #c08f45) 0%, var(--accent, #cf9a4e) 32%, var(--accent-lit, #f2d296) 46%, var(--accent, #cf9a4e) 60%, var(--accent-lo, #c08f45) 100%); background-size: 260% 100%; animation: ds-sheen 5s ease-in-out infinite; box-shadow: 0 3px 0 var(--accent-under, #7d5a24), inset 0 1px 0 rgba(255,255,255,.3), 0 0 20px -6px rgba(207,154,78,.7); transition: filter .14s ease; } .ds-btn-primary:hover { filter: brightness(1.05); } .ds-btn-primary:focus-visible { outline: 2px solid var(--accent-lit, #f2d296); outline-offset: 2px; } @keyframes ds-sheen { 0% { background-position: 130% 0; } 60%, 100% { background-position: -40% 0; } }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Lower-emphasis actions: cancel, leave, admin utilities.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { padding: 11px 22px; font: 600 13px/1 Archivo, system-ui, sans-serif; letter-spacing: .04em; background: linear-gradient(180deg, #3a322b, #2c2620); color: var(--accent, #cf9a4e); border: 1px solid var(--border-mid, #5a4c40); border-radius: 999px; box-shadow: 0 3px 0 var(--surface-well, #171310), inset 0 1px 0 rgba(226,205,168,.08); cursor: pointer; transition: all .14s ease; } .ds-btn-secondary:hover { border-color: var(--border-active, #7a6136); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--accent-lit, #f2d296); outline-offset: 2px; }"
+    },
+    {
+      "name": "Tab",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Section navigation pill; active state carries the same visual weight as a primary button.",
+      "html": "<button class=\"ds-tab ds-tab--active\">DKP</button>",
+      "css": ".ds-tab { display: flex; align-items: center; gap: 7px; padding: 9px 16px; font: 600 12px/1 Archivo, system-ui, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted, #ab9d8a); background: rgba(255,255,255,.03); border: 1px solid rgba(226,205,168,.12); border-radius: 999px; cursor: pointer; } .ds-tab--active { font-weight: 600; color: #2c2013; background: linear-gradient(160deg, var(--accent-lit, #f2d296) 0%, var(--accent-hi, #e0ad5f) 55%, var(--accent, #cf9a4e) 100%); border-color: transparent; box-shadow: 0 3px 8px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5); }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Standard glass content container over the stone background.",
+      "html": "<div class=\"ds-panel\"><h3 class=\"ds-panel-title\">Item Detail</h3><p>Panel content goes here.</p></div>",
+      "css": ".ds-panel { padding: 16px 18px 20px; border: 1px solid rgba(226,205,168,.15); border-radius: 2px; backdrop-filter: blur(5px) saturate(1.2); background-image: linear-gradient(100deg, rgba(255,250,238,0) 22%, rgba(255,250,238,.16) 42%, rgba(255,250,238,.02) 50%, rgba(255,250,238,0) 68%), radial-gradient(70% 50% at 12% -8%, rgba(255,250,238,.16), rgba(255,250,238,0) 60%), linear-gradient(180deg, rgba(226,205,168,.1) 0%, rgba(226,205,168,0) 30%), linear-gradient(180deg, rgba(48,40,33,.38), rgba(28,24,20,.38)); box-shadow: inset 0 1.5px 0 rgba(255,250,238,.42), 0 16px 34px -22px #000; color: var(--ink, #e3d8c4); transition: border-color 150ms ease; } .ds-panel:hover { border-color: rgba(255,250,238,.42); } .ds-panel-title { font: 500 17px/1.2 Newsreader, serif; margin: 0 0 11px; color: var(--ink-bright, #f0e4cd); }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "search-row",
+      "description": "Recessed well-style text input.",
+      "html": "<div class=\"ds-search-row\"><input class=\"ds-search-row__input\" placeholder=\"Search guild name…\" /></div>",
+      "css": ".ds-search-row { display: flex; align-items: center; gap: 8px; background: var(--surface-well, #171310); border: 1px solid var(--border-hairline, #453b33); border-radius: 3px; padding: 0 11px; color: var(--ink-muted, #ab9d8a); box-shadow: inset 0 2px 4px rgba(0,0,0,.45); } .ds-search-row__input { flex: 1; padding: 10px 0; background: transparent; border: none; color: var(--ink, #e3d8c4); font: 500 12.5px/1.3 Archivo, sans-serif; outline: none; } .ds-search-row:focus-within { border-color: var(--border-active, #7a6136); }"
+    },
+    {
+      "name": "Item Row",
+      "kind": "custom",
+      "refersTo": "item-row",
+      "description": "Dense list row used across the item database, wishlist, and DKP roster.",
+      "html": "<button class=\"ds-item-row\">Longsword of the Vanguard</button>",
+      "css": ".ds-item-row { display: flex; align-items: center; gap: 10px; padding: 9px 9px; background: transparent; border: 1px solid transparent; border-radius: 2px; cursor: pointer; color: var(--ink, #e3d8c4); text-align: left; font: 500 12.5px/1.3 Archivo, sans-serif; transition: all .14s ease; width: 100%; } .ds-item-row:hover { background: var(--surface, #2b2521); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Guildhall Ledger",
+    "overview": "GuildLog reads as a brass-bound account book kept open on a stone lectern in a guild keep, not a flat SaaS dashboard rendered in a browser. Every surface sits on a masonry stone texture; panels are cut from a single recurring \"glass\" recipe so the whole app reads as one pane of glass laid over old stone, not a stack of unrelated cards. The brass accent (Worn Brass) is reserved for the things a member is meant to act on: primary buttons, the active tab, DKP totals, live-status. It is deliberately not spread everywhere - its rarity is what makes it read as valuable rather than decorative.\n\nThe system is weighty and tactile, a little worn - pill-shaped buttons with a real offset drop-shadow that reads as pressed rather than flat, engraved rule-dividers, visible stone grain. It explicitly rejects two directions: the light, flat-card look of generic SaaS admin tools, and a cartoonish, saturated \"mobile gacha game\" fantasy skin.",
+    "keyCharacteristics": [
+      "Dark stone-masonry ground with a brass/gold glass sheen over every panel",
+      "Brass accent used sparingly - reserved for primary action, active state, and value (DKP, live status)",
+      "Pill-shaped buttons and tabs; small, sharp radii (2-3px) on panels, cards, and form controls",
+      "Rarity-coded gem colors (rare blue, epic purple, heroic/brass gold) borrowed from the game itself",
+      "Serif display face (Newsreader) for headings and brand type; sans (Archivo) for everything functional; mono (JetBrains Mono) for numeric/DKP values"
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Worn Brass is the only saturated hue against the ink/stone palette outside of status and rarity colors. If a new element wants a highlight color, it reaches for brass or it stays neutral - it does not introduce a second accent hue.", "section": "colors" },
+      { "name": "The Serif-Is-Ceremony Rule", "body": "Newsreader appears only on brand type and panel titles - never on body copy, buttons, or table cells.", "section": "typography" },
+      { "name": "The Pressed-Not-Flat Rule", "body": "Anything clickable gets a solid offset shadow that implies it can be pressed. Anything that only contains content gets the glass treatment instead.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep Worn Brass rare - primary action, active state, and tallied values only.",
+      "Do use pills for anything clickable and sharp 2-3px radii for anything that contains content.",
+      "Do give clickable controls an offset \"pressed\" shadow; give containers the glass treatment instead.",
+      "Do keep mobile layouts a rearrangement of the desktop reference state rather than a separately designed mobile skin."
+    ],
+    "donts": [
+      "Don't introduce a second saturated accent hue alongside Worn Brass.",
+      "Don't flatten panels into plain solid-color cards.",
+      "Don't drift toward a light flat-SaaS look or a cartoonish saturated fantasy-game skin.",
+      "Don't use a large \"soft card\" border-radius; the sharp small radius on containers is intentional."
+    ]
+  }
+}

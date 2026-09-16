@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { X, SlidersHorizontal, Sparkle, Dices, Check, Sword, Shirt, Gem } from "lucide-react";
+import { X, SlidersHorizontal, Sparkle, Dices, Check, Sword, Shirt, Gem, Circle, Droplet, Link2, CircleDot, Pin } from "lucide-react";
 import RarityDot from "./RarityDot";
 import ItemIcon from "./ItemIcon";
 import Modal from "./Modal";
-import { SLOTS } from "@/lib/gameData";
+import { SLOTS, RARITIES } from "@/lib/gameData";
 import { ITEMS, POTENTIAL_CATALOGS } from "@/lib/calculations";
 
 // Real item icons only exist for actual items - an empty slot has
@@ -13,6 +13,11 @@ import { ITEMS, POTENTIAL_CATALOGS } from "@/lib/calculations";
 // broad equipment group instead (weapon/armor/accessory) rather than
 // the old plain dashed rectangle.
 const GROUP_ICON = { weapon: Sword, armor: Shirt, accessory: Gem };
+// Accessory slots all share the "accessory" group above, but a Ring
+// and a Necklace are nothing alike - give each its own silhouette so
+// an empty accessory row reads at a glance instead of six identical
+// gems.
+const SLOT_ICON = { ring: Circle, necklace: Gem, earring: Droplet, belt: Link2, bracelet: CircleDot, brooch: Pin };
 
 const SKILL_CORES = Object.values(ITEMS).filter((i) => i.isSkillCore);
 const MAX_TRAITS = 3;
@@ -373,9 +378,9 @@ export default function Paperdoll({ wishlist, onRemove, onSlotClick, onLevelChan
         return (
           <div key={slot.id} className={`slot slot--${slot.group} ${item ? "slot--filled" : "slot--empty"} ${isSelected ? "slot--selected" : ""}`}>
             {item ? (
-              <>
+              <div className="slot__content" key={item.id} style={{ "--rarity-color": RARITIES[item.rarity]?.color }}>
                 <div className="slot__top">
-                  <RarityDot rarity={item.rarity} />
+                  <RarityDot rarity={item.rarity} shape="diamond" />
                   <ItemIcon item={item} size={24} />
                   <button
                     className="slot__item-name"
@@ -428,12 +433,12 @@ export default function Paperdoll({ wishlist, onRemove, onSlotClick, onLevelChan
                     )}
                   </>
                 )}
-              </>
+              </div>
             ) : (
               <button className="slot__empty-btn" onClick={() => onSlotClick(slot)}>
                 <span className="slot__empty-icon">
                   {(() => {
-                    const Icon = GROUP_ICON[slot.group] || Gem;
+                    const Icon = SLOT_ICON[slot.slotGroup] || GROUP_ICON[slot.group] || Gem;
                     return <Icon size={15} strokeWidth={1.5} />;
                   })()}
                 </span>

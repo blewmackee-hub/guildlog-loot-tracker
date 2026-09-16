@@ -16,7 +16,7 @@ import { X } from "lucide-react";
    wins *within* that context and still loses to the page content that
    comes after the header in the DOM. Escaping to body sidesteps any
    ancestor's stacking context or overflow clipping entirely. */
-export default function Modal({ title, onClose, children, className }) {
+export default function Modal({ title, onClose, children, className, tone }) {
   const titleId = useId();
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function Modal({ title, onClose, children, className }) {
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className={`modal-panel ${className || ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-panel__header">
+        <div className={`modal-panel__header ${tone === "danger" ? "modal-panel__header--danger" : ""}`}>
           <h3 id={titleId}>{title}</h3>
           <button className="modal-panel__close" onClick={onClose} title="Close" aria-label="Close">
             <X size={16} strokeWidth={2} />

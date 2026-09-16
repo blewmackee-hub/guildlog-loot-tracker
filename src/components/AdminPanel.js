@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Search, Pencil, Trash2 } from "lucide-react";
+import { postJSON } from "@/lib/apiClient";
 
 /* /admin only - gated server-side in src/app/admin/page.js via
    isAdmin(session.user.discordId), and every fetch here hits routes
@@ -17,6 +18,7 @@ export default function AdminPanel() {
   const [renaming, setRenaming] = useState(null); // guildId | null
   const [renameDraft, setRenameDraft] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(null); // guildId | null
+  const [deleteTypedName, setDeleteTypedName] = useState("");
   const [busyId, setBusyId] = useState(null);
 
   function load(q) {
@@ -39,13 +41,7 @@ export default function AdminPanel() {
     setBusyId(guildId);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/guilds/${guildId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: renameDraft }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      await postJSON(`/api/admin/guilds/${guildId}`, { name: renameDraft }, "PATCH");
       setRenaming(null);
       load();
     } catch (e) {
@@ -59,9 +55,7 @@ export default function AdminPanel() {
     setBusyId(guildId);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/guilds/${guildId}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      await postJSON(`/api/admin/guilds/${guildId}`, null, "DELETE");
       setConfirmingDelete(null);
       load();
     } catch (e) {
@@ -117,14 +111,33 @@ export default function AdminPanel() {
                 <button className="btn-secondary" onClick={() => setRenaming(null)}>Cancel</button>
               </div>
             ) : confirmingDelete === g.id ? (
-              <div className="guild-member-row__confirm">
-                <span className="profile-bar__leave-warning">
-                  Delete <strong>{g.name}</strong> and every member&apos;s characters in it?
-                </span>
-                <button className="profile-bar__leave-confirm" disabled={busyId === g.id} onClick={() => del(g.id)}>
-                  {busyId === g.id ? "Deleting…" : "Delete"}
-                </button>
-                <button className="btn-secondary" onClick={() => setConfirmingDelete(null)}>Cancel</button>
+              <div className="danger-zone__confirm">
+                <p className="profile-bar__leave-warning">
+                  This permanently deletes <strong>{g.name}</strong> and every member&apos;s characters in it. Type the
+                  guild name to confirm.
+                </p>
+                <input
+                  className="guild-form__input"
+                  aria-label={`Type "${g.name}" to confirm deletion`}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoFocus
+                  value={deleteTypedName}
+                  onChange={(e) => setDeleteTypedName(e.target.value)}
+                  placeholder={g.name}
+                />
+                <div className="danger-zone__actions">
+                  <button
+                    className="profile-bar__leave-confirm"
+                    disabled={deleteTypedName !== g.name || busyId === g.id}
+                    onClick={() => del(g.id)}
+                  >
+                    {busyId === g.id ? "Deleting…" : "Delete Guild Permanently"}
+                  </button>
+                  <button className="btn-secondary" onClick={() => { setConfirmingDelete(null); setDeleteTypedName(""); }}>
+                    Cancel
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -151,7 +164,7 @@ export default function AdminPanel() {
                     className="guild-member-row__kick"
                     title="Delete guild"
                     aria-label={`Delete ${g.name}`}
-                    onClick={() => setConfirmingDelete(g.id)}
+                    onClick={() => { setConfirmingDelete(g.id); setDeleteTypedName(""); }}
                   >
                     <Trash2 size={15} strokeWidth={1.5} />
                   </button>

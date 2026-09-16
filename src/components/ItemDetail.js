@@ -1,7 +1,7 @@
 import { Hammer, Package, Info, Flame, Sparkles } from "lucide-react";
 import RarityDot from "./RarityDot";
 import ItemIcon from "./ItemIcon";
-import { RARITIES, STAT_LABELS, SOURCE_ICON, unitFor, collapseUnifiedStats } from "@/lib/gameData";
+import { RARITIES, SLOTS, STAT_LABELS, SOURCE_ICON, unitFor, collapseUnifiedStats } from "@/lib/gameData";
 import { ITEMS, SETS, SOURCES, RECIPES, resolveStatValue, slotsForGroup } from "@/lib/calculations";
 
 export default function ItemDetail({ item, wishlist, pendingSlot, onAddToWishlist, savedItems, onToggleSaved }) {
@@ -15,6 +15,10 @@ export default function ItemDetail({ item, wishlist, pendingSlot, onAddToWishlis
   }
   const recipe = RECIPES[item.id];
   const set = item.setId ? SETS[item.setId] : null;
+  const slotLabel = item.slot
+    ? SLOTS.find((s) => s.id === item.slot)?.label
+    : slotsForGroup(item.slotGroup)[0]?.label;
+  const kindLabel = item.isMaterial ? "Material" : item.isSkillCore ? "Skill Core" : slotLabel || "";
 
   // Resolve every stat to its actual number first: when melee/ranged/
   // magic (or their PvP counterparts) come out numerically identical -
@@ -29,14 +33,13 @@ export default function ItemDetail({ item, wishlist, pendingSlot, onAddToWishlis
 
   return (
     <div className="detail">
-      <div className="detail__header">
+      <div className="detail__header" style={{ "--rarity-color": RARITIES[item.rarity]?.color }}>
         <RarityDot rarity={item.rarity} />
         <ItemIcon item={item} size={40} />
         <div>
           <h3>{item.name}</h3>
-          <span className="detail__rarity" style={{ color: RARITIES[item.rarity].color }}>
-            {RARITIES[item.rarity].label}
-          </span>
+          <span className="detail__rarity">{RARITIES[item.rarity].label}</span>
+          {kindLabel && <span className="detail__kind"> · {kindLabel}</span>}
         </div>
       </div>
 

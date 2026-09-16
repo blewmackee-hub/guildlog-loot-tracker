@@ -384,10 +384,11 @@ export default function App() {
         <>
           <div className="mobile-nav-backdrop" onClick={() => setMobileNavOpen(false)} />
           <nav className="mobile-nav-menu" style={{ top: mobileNavTop }}>
-            {[...NAV_TABS, { id: "help", label: "Help" }].map((t) => (
+            {[...NAV_TABS, { id: "help", label: "Help" }].map((t, i) => (
               <button
                 key={t.id}
                 className={`mobile-nav-menu__item tab--${t.id} ${tab === t.id ? "mobile-nav-menu__item--active" : ""}`}
+                style={{ animationDelay: `${Math.min(i * 25, 150)}ms` }}
                 onClick={() => {
                   setTab(t.id);
                   setMobileNavOpen(false);

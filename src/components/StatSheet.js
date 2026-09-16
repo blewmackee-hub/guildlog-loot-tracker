@@ -59,10 +59,10 @@ export default function StatSheet({ wishlist }) {
         return (
           <div className="stat-group" key={group.label}>
             <span className="stat-group__label">{group.label}</span>
-            {rows.map((k) => {
+            {rows.map((k, i) => {
               const rep = replacements[k];
               return (
-                <div className="stat-line" key={k}>
+                <div className={`stat-line ${i === 0 ? "stat-line--headline" : ""}`} key={k}>
                   <span>{rep ? rep.label : group.labels[k]}</span>
                   <span>{rep ? rep.value : totals[k]}{unitFor(k)}</span>
                 </div>

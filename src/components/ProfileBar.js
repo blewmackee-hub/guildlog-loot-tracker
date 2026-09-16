@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { LogOut, ShieldAlert } from "lucide-react";
+import { LogOut, ShieldAlert, User } from "lucide-react";
 import Modal from "./Modal";
 
 /* Characters are scoped to a guild + Discord account (src/lib/guilds.js),
@@ -17,6 +17,7 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [leaveTypedName, setLeaveTypedName] = useState("");
 
   function submit() {
     const trimmed = draft.trim();
@@ -35,6 +36,7 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
         </span>
       )}
       <span className="profile-bar__label" id="profile-bar-character-label">Playing as</span>
+      <User className="profile-bar__select-icon" size={13} strokeWidth={1.75} aria-hidden="true" />
       <select
         className="profile-bar__select"
         aria-labelledby="profile-bar-character-label"
@@ -71,15 +73,31 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
         Leave Guild
       </button>
       {confirmingLeave && (
-        <Modal title="Leave Guild?" onClose={() => setConfirmingLeave(false)}>
+        <Modal
+          title="Leave Guild?"
+          tone="danger"
+          onClose={() => { setConfirmingLeave(false); setLeaveTypedName(""); }}
+        >
           <p className="profile-bar__leave-warning">
-            Are you sure you want to leave {guildName}? This action is permanent, and all data for your character(s)
-            in this guild will be erased.
+            This permanently erases all data for your character(s) in {guildName}. Type the guild name to confirm.
           </p>
+          <input
+            className="guild-form__input"
+            aria-label={`Type "${guildName}" to confirm leaving`}
+            autoComplete="off"
+            spellCheck={false}
+            autoFocus
+            value={leaveTypedName}
+            onChange={(e) => setLeaveTypedName(e.target.value)}
+            placeholder={guildName}
+          />
           <div className="modal-panel__actions">
-            <button className="btn-secondary btn-secondary--sm" onClick={() => setConfirmingLeave(false)}>Cancel</button>
+            <button className="btn-secondary btn-secondary--sm" onClick={() => { setConfirmingLeave(false); setLeaveTypedName(""); }}>
+              Cancel
+            </button>
             <button
               className="profile-bar__leave-confirm"
+              disabled={leaveTypedName !== guildName}
               onClick={() => {
                 setConfirmingLeave(false);
                 onLeaveGuild();
