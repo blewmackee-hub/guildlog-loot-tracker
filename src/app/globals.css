@@ -125,10 +125,10 @@ body::before {
   background-image:
     var(--grain),
     var(--mottle),
-    linear-gradient(rgba(20,16,13,.4), rgba(20,16,13,.52)),
-    var(--stone),
+    linear-gradient(rgba(20,16,13,.18), rgba(20,16,13,.3)),
+    url("/backdrop.png"),
     radial-gradient(140% 100% at 50% 0%, #332c26 0%, #221d19 70%);
-  background-size: 256px 256px, 512px 512px, auto, 640px 480px, auto;
+  background-size: 256px 256px, 512px 512px, auto, cover, auto;
   background-blend-mode: soft-light, soft-light, normal, normal, normal;
 }
 
