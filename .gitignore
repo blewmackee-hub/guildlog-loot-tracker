@@ -49,3 +49,6 @@ next-env.d.ts
 # Impeccable design-skill runtime/session state (config.json and
 # design.json are durable project config and stay tracked)
 .impeccable/live/
+
+# private working notes (not for the public repo)
+SECURITY-AUDIT-AND-MORE.md
