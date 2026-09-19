@@ -47,7 +47,10 @@ export async function requireAdmin() {
   return discordId;
 }
 
+// HttpError messages are written for users; anything else (Postgres,
+// driver, bugs) is logged server-side and never sent to the client.
 export function errorResponse(e) {
-  const status = e instanceof HttpError ? e.status : 500;
-  return NextResponse.json({ error: e.message }, { status });
+  if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
+  console.error(e);
+  return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
 }
