@@ -679,11 +679,18 @@ export async function leaveGuild({ discordId, guildId }) {
 // isn't activity: a session lasts 30 days, so a leader using the app daily
 // would look inactive after 14. Null when neither has ever been recorded.
 async function leaderLastActive(leaderDiscordId) {
-  const res = await query(
-    `SELECT GREATEST(last_login_at, last_seen_at) AS "lastActive" FROM users WHERE discord_id = $1`,
-    [leaderDiscordId]
-  );
-  return res.rows[0]?.lastActive ?? null;
+  try {
+    const res = await query(
+      `SELECT GREATEST(last_login_at, last_seen_at) AS "lastActive" FROM users WHERE discord_id = $1`,
+      [leaderDiscordId]
+    );
+    return res.rows[0]?.lastActive ?? null;
+  } catch (e) {
+    if (e.code !== "42703") throw e; // undefined_column: last_seen_at not migrated yet - fall back to sign-in time
+    console.error("users.last_seen_at is missing - run the migration in db/schema.sql");
+    const res = await query(`SELECT last_login_at AS "lastActive" FROM users WHERE discord_id = $1`, [leaderDiscordId]);
+    return res.rows[0]?.lastActive ?? null;
+  }
 }
 
 // Anyone with a character in the guild can claim leadership once the

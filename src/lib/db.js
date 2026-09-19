@@ -31,12 +31,18 @@ export function query(text, params) {
 // costs one cheap conditional UPDATE per app load, not a write per request.
 // Together with last_login_at this is what the inactive-leader claim
 // measures - see leaderLastActive in src/lib/guilds.js.
-export function touchLastSeen(discordId) {
-  return query(
-    `UPDATE users SET last_seen_at = now()
-     WHERE discord_id = $1 AND (last_seen_at IS NULL OR last_seen_at < now() - interval '1 hour')`,
-    [discordId]
-  );
+// Best-effort: it must never take the app down (a database that hasn't had
+// the last_seen_at migration yet would otherwise fail every app load).
+export async function touchLastSeen(discordId) {
+  try {
+    await query(
+      `UPDATE users SET last_seen_at = now()
+       WHERE discord_id = $1 AND (last_seen_at IS NULL OR last_seen_at < now() - interval '1 hour')`,
+      [discordId]
+    );
+  } catch (e) {
+    console.error("touchLastSeen failed (is users.last_seen_at migrated?):", e.message);
+  }
 }
 
 // Runs fn(client) between BEGIN/COMMIT on one connection, rolling back
