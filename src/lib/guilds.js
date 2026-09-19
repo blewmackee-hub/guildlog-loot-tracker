@@ -100,7 +100,8 @@ export async function getOrCreateCharacter({ discordId, guildId, name }) {
     throw new HttpError(400, `Character name can be at most ${MAX_CHARACTER_NAME_LENGTH} characters.`);
   }
   const existing = await query(
-    `SELECT id, name, build, wishlist FROM characters WHERE discord_id = $1 AND guild_id = $2 AND name = $3`,
+    `SELECT id, name, build, wishlist FROM characters WHERE discord_id = $1 AND guild_id = $2 AND lower(name) = lower($3)
+     ORDER BY created_at LIMIT 1`,
     [discordId, guildId, characterName]
   );
   if (existing.rows.length > 0) return existing.rows[0];
