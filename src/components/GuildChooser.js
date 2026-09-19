@@ -203,8 +203,9 @@ export default function GuildChooser({ discordName }) {
             className="guild-form__input"
             type="password"
             inputMode="numeric"
-            placeholder="Set a PIN (4-8 digits)"
-            aria-label="Set a PIN, 4 to 8 digits"
+            placeholder="Set a PIN (6 digits)"
+            maxLength={6}
+            aria-label="Set a PIN, 6 digits"
             autoComplete="off"
             spellCheck={false}
             value={newPin}
@@ -215,6 +216,7 @@ export default function GuildChooser({ discordName }) {
             type="password"
             inputMode="numeric"
             placeholder="Confirm PIN"
+            maxLength={6}
             aria-label="Confirm PIN"
             aria-invalid={pinsMismatch}
             aria-describedby={pinsMismatch ? "confirm-pin-hint" : undefined}

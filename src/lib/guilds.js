@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { query } from "@/lib/db";
 
 const PIN_ATTEMPT_LIMIT = 5;
+const PIN_GUILD_ATTEMPT_LIMIT = 30;
 const PIN_ATTEMPT_WINDOW_MINUTES = 15;
 
 export async function searchGuilds(searchText) {
@@ -20,7 +21,7 @@ export async function searchGuilds(searchText) {
 export async function registerGuild({ name, pin, ownerDiscordId }) {
   const trimmedName = (name || "").trim();
   if (trimmedName.length < 2) throw new HttpError(400, "Guild name must be at least 2 characters.");
-  if (!/^\d{4,8}$/.test(pin || "")) throw new HttpError(400, "PIN must be 4-8 digits.");
+  if (!/^\d{6}$/.test(pin || "")) throw new HttpError(400, "PIN must be exactly 6 digits.");
 
   const pinHash = await bcrypt.hash(pin, 10);
   try {
@@ -38,39 +39,37 @@ export async function registerGuild({ name, pin, ownerDiscordId }) {
   }
 }
 
-/* Rate limiting: reject before even checking the PIN once this
-   (guild, discordId) pair has PIN_ATTEMPT_LIMIT failed attempts
-   inside the trailing window - a successful attempt doesn't reset
-   the window early, it just naturally ages out. */
-async function checkPinRateLimit({ guildId, discordId }) {
-  const res = await query(
-    `SELECT count(*)::int AS failed_count
+/* Rate limiting: every attempt is logged BEFORE the PIN is compared,
+   then failures in the trailing window (this attempt included) are
+   counted - so parallel requests can't all read "0 failures" and slip
+   past, the way a count-then-insert check allowed. At most
+   PIN_ATTEMPT_LIMIT of a burst get through to bcrypt. A correct PIN
+   flips its own row to succeeded. Two caps: per (guild, account), and a
+   per-guild ceiling so spinning up extra Discord accounts doesn't reset
+   the budget (tradeoff: someone can burn it to briefly block joins). */
+export async function verifyGuildPin({ guildId, pin, discordId }) {
+  const guildRes = await query(`SELECT pin_hash FROM guilds WHERE id = $1`, [guildId]);
+  if (guildRes.rows.length === 0) throw new HttpError(404, "Guild not found.");
+
+  const attempt = await query(
+    `INSERT INTO guild_pin_attempts (guild_id, discord_id, succeeded) VALUES ($1, $2, false) RETURNING id`,
+    [guildId, discordId]
+  );
+  const counts = await query(
+    `SELECT count(*) FILTER (WHERE discord_id = $2)::int AS mine, count(*)::int AS total
      FROM guild_pin_attempts
-     WHERE guild_id = $1 AND discord_id = $2 AND succeeded = false
+     WHERE guild_id = $1 AND succeeded = false
        AND attempted_at > now() - ($3 || ' minutes')::interval`,
     [guildId, discordId, PIN_ATTEMPT_WINDOW_MINUTES]
   );
-  const failedCount = res.rows[0].failed_count;
-  if (failedCount >= PIN_ATTEMPT_LIMIT) {
-    throw new HttpError(
-      429,
-      `Too many incorrect PIN attempts for this guild. Try again in a few minutes.`
-    );
+  const { mine, total } = counts.rows[0];
+  if (mine > PIN_ATTEMPT_LIMIT || total > PIN_GUILD_ATTEMPT_LIMIT) {
+    throw new HttpError(429, `Too many incorrect PIN attempts for this guild. Try again in a few minutes.`);
   }
-}
 
-export async function verifyGuildPin({ guildId, pin, discordId }) {
-  await checkPinRateLimit({ guildId, discordId });
-
-  const res = await query(`SELECT pin_hash FROM guilds WHERE id = $1`, [guildId]);
-  if (res.rows.length === 0) throw new HttpError(404, "Guild not found.");
-
-  const ok = await bcrypt.compare(pin || "", res.rows[0].pin_hash);
-  await query(
-    `INSERT INTO guild_pin_attempts (guild_id, discord_id, succeeded) VALUES ($1, $2, $3)`,
-    [guildId, discordId, ok]
-  );
+  const ok = await bcrypt.compare(typeof pin === "string" ? pin : "", guildRes.rows[0].pin_hash);
   if (!ok) throw new HttpError(401, "Incorrect PIN.");
+  await query(`UPDATE guild_pin_attempts SET succeeded = true WHERE id = $1`, [attempt.rows[0].id]);
 }
 
 export async function getOrCreateCharacter({ discordId, guildId, name }) {
