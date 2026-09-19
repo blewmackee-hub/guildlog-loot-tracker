@@ -39,7 +39,7 @@ export default function CustomSelect({ value, onChange, options, placeholder, cl
         aria-label={ariaLabel}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className={selected ? "" : "custom-select__placeholder"}>{selected ? selected.label : placeholder}</span>
+        <span className={`custom-select__label ${selected ? "" : "custom-select__placeholder"}`}>{selected ? selected.label : placeholder}</span>
         <ChevronDown size={12} strokeWidth={2} />
       </button>
       {open && (

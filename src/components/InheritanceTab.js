@@ -56,7 +56,7 @@ export default function InheritanceTab({ wishlist }) {
       </div>
 
       <p className="formula-note">
-        Cost formula fitted from your example data (~level/4 − 6 ore per level step) — matches closely but isn't exact at every level yet. Send more examples, especially lower-level or wider jumps, to sharpen it.
+        Cost is an estimate fitted from real examples at levels 45–81 (about 0.155 × level − 3.3 ore per level step); it can be off by a couple of ore, and levels above 81 are extrapolated. Send more examples, especially from 81–93, to sharpen it.
       </p>
     </div>
   );

@@ -1096,6 +1096,11 @@ input[type="range"]::-moz-range-thumb {
 .party-planner__slot { display: contents; }
 .party-planner__slot-select { position: relative; width: 100%; }
 .party-planner__slot-select--member .custom-select__trigger { color: var(--accent-hi); font-weight: 700; }
+/* compact one-line slots so party boxes stay short */
+.party-planner__slots .custom-select__trigger { padding: 2px 5px; gap: 3px; font-size: 10.5px; line-height: 1.2; }
+.party-planner__slots .custom-select__trigger svg { width: 10px; height: 10px; }
+.party-planner__slots .custom-select__label { text-align: center; }
+.party-planner__slots { gap: 3px 5px; }
 .party-planner__slot-value {
   display: block;
   grid-column: 1 / -1;
@@ -1120,6 +1125,7 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(0,0,0,.24); border-color: rgba(226,205,168,.4);
 }
 .custom-select__trigger svg { flex: none; opacity: .7; }
+.custom-select__label { min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .custom-select__placeholder { color: #4a4239; font-weight: 400; text-shadow: none; }
 .custom-select__list {
   position: absolute; z-index: 30; top: calc(100% + 3px); left: 0; right: 0;

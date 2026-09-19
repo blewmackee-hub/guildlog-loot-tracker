@@ -33,18 +33,19 @@ export function resolveStatValue(entry, level, levelRange) {
   return Math.round(raw);
 }
 
-/* Fitted from nine real (from, to, cost) examples across weapon,
-   armor, and accessory slots: the per-level cost to step up from
-   L-1 to L is close to (L / 4) - 6.125 ore, rounded to the nearest
-   whole ore, summed over the range. Matches 6 of 9 examples
-   exactly and the rest within 1-2 ore — good enough to plan
-   around, but more data (especially lower-level or wider jumps)
-   would sharpen it further. */
+/* Fitted from six real (from, to, cost) examples across weapon, armor,
+   and accessory slots (levels 45-81), taken after the Sep 2026 patch:
+   the ore to step up from L-1 to L is close to 0.155 * L - 3.27,
+   rounded to a whole ore per level and summed over the range. Matches
+   3 examples exactly and the other 3 within 2 ore; one curve fits all
+   three ore types. The earlier formula (L/4 - 6.125) overshot these by
+   ~40%, so costs appear to have dropped in the patch. Above level 81
+   (caps are now 90, and 93 for archboss weapons) this is extrapolation. */
 export function estimateInheritCost(fromLevel, toLevel) {
   if (toLevel <= fromLevel) return 0;
   let total = 0;
   for (let lvl = fromLevel + 1; lvl <= toLevel; lvl++) {
-    total += Math.round(lvl / 4 - 6.125);
+    total += Math.max(0, Math.round(0.155 * lvl - 3.27));
   }
   return total;
 }
