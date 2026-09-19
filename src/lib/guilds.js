@@ -132,10 +132,18 @@ export async function getMemberRole({ guildId, discordId }) {
   if (!guild) throw new HttpError(404, "Guild not found.");
   if (guild.owner_discord_id === discordId) return "leader";
   const res = await query(
-    `SELECT is_officer AS "isOfficer" FROM guild_memberships WHERE guild_id = $1 AND discord_id = $2`,
+    `SELECT gm.is_officer AS "isOfficer" FROM guild_memberships gm
+     WHERE gm.guild_id = $1 AND gm.discord_id = $2
+       AND EXISTS (SELECT 1 FROM characters c WHERE c.guild_id = gm.guild_id AND c.discord_id = gm.discord_id)`,
     [guildId, discordId]
   );
   return roleFor({ guild, discordId, isOfficer: res.rows[0]?.isOfficer || false });
+}
+
+// Kick/leave keep the guild_memberships row (so DKP survives a rejoin)
+// but must drop officer status, or the flag would come back with them.
+function clearOfficer({ guildId, discordId }) {
+  return query(`UPDATE guild_memberships SET is_officer = false WHERE guild_id = $1 AND discord_id = $2`, [guildId, discordId]);
 }
 
 // Called before any write that targets a guild_memberships row a
@@ -386,6 +394,7 @@ export async function kickMember({ guildId, targetDiscordId, requesterDiscordId 
     throw new HttpError(400, "Use \"Leave Guild\" to remove your own characters.");
   }
   await query(`DELETE FROM characters WHERE discord_id = $1 AND guild_id = $2`, [targetDiscordId, guildId]);
+  await clearOfficer({ guildId, discordId: targetDiscordId });
 }
 
 /* Hands the guild off to another member, e.g. the owner is leaving
@@ -464,6 +473,7 @@ export async function leaveGuild({ discordId, guildId }) {
     }
   }
   await query(`DELETE FROM characters WHERE discord_id = $1 AND guild_id = $2`, [discordId, guildId]);
+  await clearOfficer({ guildId, discordId });
 }
 
 // Anyone with a character in the guild can claim leadership once the
