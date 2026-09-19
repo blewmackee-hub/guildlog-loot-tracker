@@ -3,10 +3,9 @@ import { requireDiscordId, requireActiveGuild, errorResponse } from "@/lib/apiHe
 import { setDecaySettings } from "@/lib/guilds";
 
 // POST /api/guild/decay { pct, weekday } - sets the signed-in user's
-// CURRENT guild's weekly DKP decay (pct 0 disables it). There's no cron
-// job behind this - decay is applied lazily the next time anyone loads
-// the DKP tab on or after the chosen day (see applyDueDecay in
-// src/lib/guilds.js). setDecaySettings re-checks server-side that the
+// CURRENT guild's weekly DKP decay (pct 0 disables it). The decay itself
+// is applied by the daily scheduled job (see applyDueDecays in
+// src/lib/guilds.js and /api/cron/decay). setDecaySettings re-checks server-side that the
 // requester is an officer or the guild leader - never trusts a
 // client-asserted role.
 export async function POST(request) {

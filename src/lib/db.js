@@ -27,6 +27,18 @@ export function query(text, params) {
   return getPool().query(text, params);
 }
 
+// Marks "this account used the app just now", at most once an hour so it
+// costs one cheap conditional UPDATE per app load, not a write per request.
+// Together with last_login_at this is what the inactive-leader claim
+// measures - see leaderLastActive in src/lib/guilds.js.
+export function touchLastSeen(discordId) {
+  return query(
+    `UPDATE users SET last_seen_at = now()
+     WHERE discord_id = $1 AND (last_seen_at IS NULL OR last_seen_at < now() - interval '1 hour')`,
+    [discordId]
+  );
+}
+
 // Runs fn(client) between BEGIN/COMMIT on one connection, rolling back
 // if it throws - for read-then-write checks that must not interleave.
 export async function withTransaction(fn) {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDiscordId, requireActiveGuild, getVerifiedActiveGuild, errorResponse } from "@/lib/apiHelpers";
 import { setActiveCharacter } from "@/lib/guildSession";
-import { query } from "@/lib/db";
+import { query, touchLastSeen } from "@/lib/db";
 import { saveCharacterData, getOrCreateCharacter, getCharacterContext, deleteCharacter } from "@/lib/guilds";
 import { isAdmin } from "@/lib/admin";
 
@@ -14,6 +14,7 @@ import { isAdmin } from "@/lib/admin";
 export async function GET() {
   try {
     const discordId = await requireDiscordId();
+    await touchLastSeen(discordId);
     const isSiteAdmin = isAdmin(discordId);
     const active = await getVerifiedActiveGuild(discordId);
     if (!active) return NextResponse.json({ character: null, guild: null, characters: [], isSiteAdmin });

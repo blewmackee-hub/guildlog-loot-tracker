@@ -22,6 +22,13 @@ CREATE TABLE IF NOT EXISTS users (
 -- existing leader becomes claimable the instant this ships.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
 
+-- Last time the account opened the app (touchLastSeen in src/lib/db.js,
+-- at most hourly). Sign-in time alone misses daily users on a long-lived
+-- session, so the inactive-leader claim (claimLeadership) uses whichever of
+-- last_login_at / last_seen_at is newer. DEFAULT now() stamps every existing
+-- row with the migration time, so nobody looks inactive the moment this ships.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ DEFAULT now();
+
 CREATE TABLE IF NOT EXISTS guilds (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name              TEXT NOT NULL UNIQUE,
@@ -33,10 +40,11 @@ CREATE TABLE IF NOT EXISTS guilds (
 -- Weekly DKP decay, configured per guild (leader-only - see
 -- setDecaySettings in src/lib/guilds.js). dkp_decay_pct = 0 means
 -- disabled. dkp_decay_weekday follows Postgres EXTRACT(DOW ...): 0 =
--- Sunday .. 6 = Saturday. There's no cron job - decay is applied
--- lazily (applyDueDecay, called from listGuildRoster) the next time
--- anyone loads the DKP tab on or after the configured day; dkp_decay_
--- last_applied guards against re-applying it twice in the same week.
+-- Sunday .. 6 = Saturday. Decay is applied by the daily scheduled job
+-- (applyDueDecays, called from /api/cron/decay - see vercel.json);
+-- dkp_decay_last_applied guards against re-applying it twice in the same
+-- week and is set when the decay is configured so the first decay is the
+-- next occurrence of the chosen day.
 ALTER TABLE guilds ADD COLUMN IF NOT EXISTS dkp_decay_pct INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE guilds ADD COLUMN IF NOT EXISTS dkp_decay_weekday INTEGER;
 ALTER TABLE guilds ADD COLUMN IF NOT EXISTS dkp_decay_last_applied TIMESTAMPTZ;

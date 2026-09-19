@@ -4,13 +4,23 @@ import { useState, useEffect, useRef } from "react";
 import { Crown, Shield, Check, X } from "lucide-react";
 import { postJSON } from "@/lib/apiClient";
 
+// The "decay just ran" notice comes back from the server for 48 hours
+// after each scheduled decay; remember (per browser) that it was dismissed
+// so switching tabs doesn't bring it back.
+const decayKey = (appliedAt) => `dkp-decay-dismissed:${appliedAt}`;
+function decayDismissed(appliedAt) {
+  try { return localStorage.getItem(decayKey(appliedAt)) === "1"; } catch { return false; }
+}
+function dismissDecay(appliedAt) {
+  try { localStorage.setItem(decayKey(appliedAt), "1"); } catch {}
+}
+
 const WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 // Officer/leader editor for the guild's weekly DKP decay - same gate
 // as the rest of the DKP tab's controls, not leader-only (see
-// setDecaySettings/applyDueDecay in src/lib/guilds.js - there's no cron
-// job, it's applied lazily the next time anyone loads this tab on or
-// after the chosen day). Plain members get a read-only summary.
+// setDecaySettings in src/lib/guilds.js; the daily scheduled job applies
+// it, see applyDueDecays). Plain members get a read-only summary.
 function DecayControl({ decay, canEdit, onSave, busy }) {
   const [editing, setEditing] = useState(false);
   const [pct, setPct] = useState(0);
@@ -127,7 +137,7 @@ export default function DkpTab() {
         setMyRole(data.myRole);
         setOfficerCap(data.officerCap);
         setDecay(data.decay);
-        if (data.decayApplied) setDecayBanner(data.decayApplied);
+        if (data.decayApplied && !decayDismissed(data.decayApplied.appliedAt)) setDecayBanner(data.decayApplied);
         setLog(data.log || []);
       })
       .catch((e) => setError(e.message));
@@ -263,9 +273,9 @@ export default function DkpTab() {
       {decayBanner && (
         <div className="dkp-decay-banner">
           <span>
-            Weekly decay applied: −{decayBanner.pct}% to {decayBanner.affected} member{decayBanner.affected === 1 ? "" : "s"}.
+            Weekly decay applied: −{decayBanner.pct}% to {decayBanner.affected} member{decayBanner.affected === 1 ? "" : "s"}. Details are in the history.
           </span>
-          <button className="dkp-decay-banner__dismiss" onClick={() => setDecayBanner(null)} aria-label="Dismiss">
+          <button className="dkp-decay-banner__dismiss" onClick={() => { dismissDecay(decayBanner.appliedAt); setDecayBanner(null); }} aria-label="Dismiss">
             <X size={12} strokeWidth={2} />
           </button>
         </div>

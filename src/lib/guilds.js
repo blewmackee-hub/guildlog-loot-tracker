@@ -9,6 +9,7 @@ const MAX_CHARACTER_NAME_LENGTH = 30;
 const MAX_CHARACTERS_PER_GUILD = 10; // per Discord account
 const MAX_DKP_REASON_LENGTH = 200;
 const MAX_DKP_DELTA = 1_000_000;
+const DECAY_LOG_REASON = "Weekly decay";
 
 export async function searchGuilds(searchText) {
   const q = (searchText || "").trim();
@@ -267,27 +268,61 @@ function mostRecentOccurrence(weekday, now = new Date()) {
   return d;
 }
 
-// No cron job backs this - decay is applied lazily, the next time
-// anyone loads the DKP tab on or after the configured weekday (called
-// from listGuildRoster, before the roster is read back). Guarded by
-// dkp_decay_last_applied so opening the tab several times on/after
-// decay day only decays the guild once per week.
-// Returns {pct, affected} the one time it actually fires (so the DKP
-// tab can tell members balances just moved and why), null every other
-// load once dkp_decay_last_applied has caught up.
-async function applyDueDecay(guild) {
-  if (!guild.dkpDecayPct || guild.dkpDecayWeekday === null || guild.dkpDecayWeekday === undefined) return null;
-  const due = mostRecentOccurrence(guild.dkpDecayWeekday);
-  const lastApplied = guild.dkpDecayLastApplied ? new Date(guild.dkpDecayLastApplied) : null;
-  if (lastApplied && lastApplied >= due) return null;
-
-  const factor = 1 - guild.dkpDecayPct / 100;
-  const res = await query(
-    `UPDATE guild_memberships SET dkp_total = round((dkp_total * $1)::numeric)::integer WHERE guild_id = $2`,
-    [factor, guild.id]
+// Called once a day by the scheduled job (GET /api/cron/decay, see
+// vercel.json) - never from a page load, so opening the DKP tab can't
+// trigger it. A guild is decayed when its chosen weekday's most recent
+// occurrence is newer than dkp_decay_last_applied; a missed run is
+// caught up by the next daily one. The claim (conditional UPDATE of
+// dkp_decay_last_applied) and the decay happen in one transaction, so a
+// retry or double-fire can't apply it twice and a failure can't mark a
+// guild done without decaying it. Each changed balance gets a dkp_log
+// row (attributed to the guild owner) so the history shows what moved.
+export async function applyDueDecays() {
+  const guilds = await query(
+    `SELECT id, dkp_decay_weekday AS weekday, dkp_decay_last_applied AS "lastApplied"
+     FROM guilds WHERE dkp_decay_pct > 0 AND dkp_decay_weekday IS NOT NULL`
   );
-  await query(`UPDATE guilds SET dkp_decay_last_applied = now() WHERE id = $1`, [guild.id]);
-  return { pct: guild.dkpDecayPct, affected: res.rowCount };
+  const applied = [];
+  for (const g of guilds.rows) {
+    const due = mostRecentOccurrence(g.weekday);
+    if (g.lastApplied && new Date(g.lastApplied) >= due) continue;
+    const affected = await withTransaction(async (client) => {
+      const claim = await client.query(
+        `UPDATE guilds SET dkp_decay_last_applied = now()
+         WHERE id = $1 AND dkp_decay_pct > 0 AND dkp_decay_weekday = $3
+           AND (dkp_decay_last_applied IS NULL OR dkp_decay_last_applied < $2)
+         RETURNING dkp_decay_pct AS pct, owner_discord_id AS owner`,
+        [g.id, due, g.weekday]
+      );
+      if (claim.rows.length === 0) return null; // someone else got there first
+      const { pct, owner } = claim.rows[0];
+      const res = await client.query(
+        `WITH old AS (SELECT discord_id, dkp_total FROM guild_memberships WHERE guild_id = $1 FOR UPDATE),
+              upd AS (
+                UPDATE guild_memberships gm SET dkp_total = round(o.dkp_total * $2::numeric)::integer
+                FROM old o WHERE gm.guild_id = $1 AND gm.discord_id = o.discord_id
+                RETURNING gm.discord_id, gm.dkp_total AS new_total, o.dkp_total AS old_total)
+         INSERT INTO dkp_log (guild_id, actor_discord_id, target_discord_id, delta, reason)
+         SELECT $1, $3, discord_id, new_total - old_total, $4 FROM upd WHERE new_total <> old_total`,
+        [g.id, 1 - pct / 100, owner, `${DECAY_LOG_REASON} -${pct}%`]
+      );
+      return res.rowCount;
+    });
+    if (affected !== null) applied.push({ guildId: g.id, affected });
+  }
+  return applied;
+}
+
+// The DKP tab's "decay just ran" notice: the most recent scheduled decay
+// in the last 48 hours, read back from the log it wrote. Null when none.
+async function recentDecay(guild) {
+  const res = await query(
+    `SELECT max(created_at) AS "appliedAt", count(*)::int AS affected
+     FROM dkp_log WHERE guild_id = $1 AND reason LIKE $2 AND created_at > now() - interval '48 hours'`,
+    [guild.id, `${DECAY_LOG_REASON}%`]
+  );
+  const row = res.rows[0];
+  return row.appliedAt ? { pct: guild.dkpDecayPct, affected: row.affected, appliedAt: row.appliedAt } : null;
 }
 
 // Officer/leader gate - same as adjustDkp, since this is a DKP setting
@@ -306,7 +341,16 @@ export async function setDecaySettings({ guildId, requesterDiscordId, pct, weekd
   if (pct > 0 && (!Number.isInteger(normalizedWeekday) || normalizedWeekday < 0 || normalizedWeekday > 6)) {
     throw new HttpError(400, "Pick a day of the week for decay to apply on.");
   }
-  await query(`UPDATE guilds SET dkp_decay_pct = $1, dkp_decay_weekday = $2 WHERE id = $3`, [pct, normalizedWeekday, guildId]);
+  // A newly set decay starts at the NEXT occurrence of the chosen day, not
+  // retroactively for one that already passed this week.
+  await query(
+    `UPDATE guilds SET dkp_decay_pct = $1, dkp_decay_weekday = $2,
+       dkp_decay_last_applied = CASE WHEN $1::int > 0
+         THEN GREATEST(COALESCE(dkp_decay_last_applied, '-infinity'::timestamptz), $4::timestamptz)
+         ELSE dkp_decay_last_applied END
+     WHERE id = $3`,
+    [pct, normalizedWeekday, guildId, pct > 0 ? mostRecentOccurrence(normalizedWeekday) : null]
+  );
 }
 
 // Every (Discord account, guild) pair with a DKP total and role, for the
@@ -317,7 +361,7 @@ export async function setDecaySettings({ guildId, requesterDiscordId, pct, weekd
 export async function listGuildRoster({ guildId }) {
   const guild = await getGuildById(guildId);
   if (!guild) throw new HttpError(404, "Guild not found.");
-  const decayApplied = await applyDueDecay(guild);
+  const decayApplied = await recentDecay(guild);
 
   await query(
     `INSERT INTO guild_memberships (guild_id, discord_id)
@@ -629,12 +673,23 @@ export async function leaveGuild({ discordId, guildId }) {
   await clearOfficer({ guildId, discordId });
 }
 
+// The leader's last sign-in OR last time they opened the app, whichever is
+// newer (users.last_login_at moves on a Discord sign-in, last_seen_at on
+// real use - see upsertUser/touchLastSeen in src/lib/db.js). Sign-in alone
+// isn't activity: a session lasts 30 days, so a leader using the app daily
+// would look inactive after 14. Null when neither has ever been recorded.
+async function leaderLastActive(leaderDiscordId) {
+  const res = await query(
+    `SELECT GREATEST(last_login_at, last_seen_at) AS "lastActive" FROM users WHERE discord_id = $1`,
+    [leaderDiscordId]
+  );
+  return res.rows[0]?.lastActive ?? null;
+}
+
 // Anyone with a character in the guild can claim leadership once the
-// current leader has gone LEADER_INACTIVITY_DAYS without a real
-// Discord sign-in (see upsertUser in src/lib/db.js - last_login_at
-// only moves on an actual OAuth sign-in, not a session refresh). A
-// NULL last_login_at (never signed in since that column existed) is
-// treated as "not stale" rather than instantly claimable.
+// current leader has gone LEADER_INACTIVITY_DAYS without signing in or
+// opening the app. A leader with no recorded activity at all is treated as
+// "not stale" rather than instantly claimable.
 export async function claimLeadership({ guildId, requesterDiscordId }) {
   const guild = await getGuildById(guildId);
   if (!guild) throw new HttpError(404, "Guild not found.");
@@ -645,14 +700,13 @@ export async function claimLeadership({ guildId, requesterDiscordId }) {
   if (member.rows.length === 0) {
     throw new HttpError(403, "You must be a member of this guild to claim leadership.");
   }
-  const leaderRes = await query(`SELECT last_login_at AS "lastLoginAt" FROM users WHERE discord_id = $1`, [guild.owner_discord_id]);
-  const lastLoginAt = leaderRes.rows[0]?.lastLoginAt;
-  if (!lastLoginAt) {
-    throw new HttpError(400, "The current leader's sign-in activity isn't tracked yet - leadership can't be claimed until they sign in at least once more.");
+  const lastActive = await leaderLastActive(guild.owner_discord_id);
+  if (!lastActive) {
+    throw new HttpError(400, "The current leader's activity isn't tracked yet - leadership can't be claimed until they use the app at least once more.");
   }
-  const daysSince = (Date.now() - new Date(lastLoginAt).getTime()) / (1000 * 60 * 60 * 24);
+  const daysSince = (Date.now() - new Date(lastActive).getTime()) / (1000 * 60 * 60 * 24);
   if (daysSince < LEADER_INACTIVITY_DAYS) {
-    throw new HttpError(400, `The guild leader signed in ${Math.floor(daysSince)} day(s) ago - leadership can only be claimed after ${LEADER_INACTIVITY_DAYS} days of inactivity.`);
+    throw new HttpError(400, `The guild leader was active ${Math.floor(daysSince)} day(s) ago - leadership can only be claimed after ${LEADER_INACTIVITY_DAYS} days of inactivity.`);
   }
   await query(`UPDATE guilds SET owner_discord_id = $1 WHERE id = $2`, [requesterDiscordId, guildId]);
 }
@@ -685,10 +739,9 @@ export async function getCharacterContext({ discordId, characterId }) {
     if (!isOwner) {
       const gm = await query(`SELECT is_officer FROM guild_memberships WHERE guild_id = $1 AND discord_id = $2`, [guildRow.id, discordId]);
       isOfficer = gm.rows[0]?.is_officer === true;
-      const leaderRes = await query(`SELECT last_login_at AS "lastLoginAt" FROM users WHERE discord_id = $1`, [guildRow.owner_discord_id]);
-      const lastLoginAt = leaderRes.rows[0]?.lastLoginAt;
-      if (lastLoginAt) {
-        const daysSince = (Date.now() - new Date(lastLoginAt).getTime()) / (1000 * 60 * 60 * 24);
+      const lastActive = await leaderLastActive(guildRow.owner_discord_id);
+      if (lastActive) {
+        const daysSince = (Date.now() - new Date(lastActive).getTime()) / (1000 * 60 * 60 * 24);
         canClaimLeadership = daysSince >= LEADER_INACTIVITY_DAYS;
       }
     }
