@@ -108,6 +108,7 @@ export default function DkpTab() {
   const [bulkSubtract, setBulkSubtract] = useState("");
   const [bulkReason, setBulkReason] = useState("");
   const [decayBanner, setDecayBanner] = useState(null);
+  const [confirmRemove, setConfirmRemove] = useState(null); // discordId of a former member
   // discordId -> "good" | "bad", cleared a moment after a row's total
   // changes so the cell gets a brief flash instead of just snapping to
   // its new value with no feedback.
@@ -216,6 +217,25 @@ export default function DkpTab() {
     setError(null);
     try {
       await postJSON("/api/guild/officers", { discordId, makeOfficer });
+      load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function removeMember(discordId) {
+    setBusyKey(`remove:${discordId}`);
+    setError(null);
+    try {
+      await postJSON("/api/guild/dkp", { discordId }, "DELETE");
+      setConfirmRemove(null);
+      setSelected((s) => {
+        const next = new Set(s);
+        next.delete(discordId);
+        return next;
+      });
       load();
     } catch (e) {
       setError(e.message);
@@ -377,6 +397,33 @@ export default function DkpTab() {
                       {m.username}
                       {m.role === "leader" && <span className="guild-member-row__owner-badge">Leader</span>}
                       {m.role === "officer" && <span className="dkp-row__officer-badge">Officer</span>}
+                      {canEdit && m.role !== "leader" && !m.inGuild && (
+                        confirmRemove === m.discordId ? (
+                          <span className="dkp-row__remove-confirm">
+                            <span className="profile-bar__leave-warning">Remove from table?</span>
+                            <button
+                              className="profile-bar__leave-confirm"
+                              disabled={busyKey === `remove:${m.discordId}`}
+                              onClick={() => removeMember(m.discordId)}
+                            >
+                              {busyKey === `remove:${m.discordId}` ? "Removing…" : "Remove"}
+                            </button>
+                            <button className="btn-secondary btn-secondary--sm" onClick={() => setConfirmRemove(null)}>Cancel</button>
+                          </span>
+                        ) : (
+                          <>
+                            <span className="muted dkp-row__left-badge">Left guild</span>
+                            <button
+                              className="guild-member-row__kick"
+                              title="Remove from DKP table"
+                              aria-label={`Remove ${m.username} from the DKP table`}
+                              onClick={() => setConfirmRemove(m.discordId)}
+                            >
+                              <X size={14} strokeWidth={1.5} />
+                            </button>
+                          </>
+                        )
+                      )}
                     </span>
                   </td>
                   <td className={`dkp-table__total ${flash[m.discordId] ? `dkp-table__total--flash-${flash[m.discordId]}` : ""}`}>

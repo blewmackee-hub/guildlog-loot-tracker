@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireDiscordId, requireActiveGuild, errorResponse } from "@/lib/apiHelpers";
-import { listGuildRoster, adjustDkp, getDkpLog } from "@/lib/guilds";
+import { listGuildRoster, adjustDkp, getDkpLog, removeDkpMember } from "@/lib/guilds";
 
 // GET /api/guild/dkp - every member of the signed-in user's CURRENT
 // guild with their DKP total and role, the requester's own role (so
@@ -42,6 +42,21 @@ export async function POST(request) {
       delta: body.delta,
       reason: body.reason,
     });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
+
+// DELETE /api/guild/dkp { discordId } - removes a former member's row
+// (no character left in this guild) from the DKP table. Officer/leader
+// only, re-checked in removeDkpMember.
+export async function DELETE(request) {
+  try {
+    const discordId = await requireDiscordId();
+    const active = await requireActiveGuild();
+    const body = await request.json();
+    await removeDkpMember({ guildId: active.guildId, targetDiscordId: body.discordId, requesterDiscordId: discordId });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return errorResponse(e);

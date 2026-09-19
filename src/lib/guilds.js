@@ -298,7 +298,8 @@ export async function listGuildRoster({ guildId }) {
   );
 
   const res = await query(
-    `SELECT gm.discord_id AS "discordId", u.username, gm.dkp_total AS "dkpTotal", gm.is_officer AS "isOfficer"
+    `SELECT gm.discord_id AS "discordId", u.username, gm.dkp_total AS "dkpTotal", gm.is_officer AS "isOfficer",
+            EXISTS (SELECT 1 FROM characters c WHERE c.guild_id = gm.guild_id AND c.discord_id = gm.discord_id) AS "inGuild"
      FROM guild_memberships gm
      JOIN users u ON u.discord_id = gm.discord_id
      WHERE gm.guild_id = $1
@@ -311,6 +312,7 @@ export async function listGuildRoster({ guildId }) {
       discordId: r.discordId,
       username: r.username,
       dkpTotal: r.dkpTotal,
+      inGuild: r.inGuild,
       role: roleFor({ guild, discordId: r.discordId, isOfficer: r.isOfficer }),
     }))
     // Leader, then officers, then members - alphabetical (already the
@@ -373,6 +375,28 @@ export async function adjustDkp({ guildId, targetDiscordIds, requesterDiscordId,
      SELECT $1, $2, target_id, $4, $5 FROM unnest($3::text[]) AS target_id`,
     [guildId, requesterDiscordId, ids, delta, trimmedReason]
   );
+}
+
+// Drops a DKP-table row for someone who is no longer in the guild (kicked
+// or left - they have no character here). Officer/leader gate, and the
+// "no character" check lives in the DELETE itself so a simultaneous
+// rejoin can't lose an active member's points. The audit log is kept.
+export async function removeDkpMember({ guildId, targetDiscordId, requesterDiscordId }) {
+  await requireEditor({ guildId, requesterDiscordId, action: "remove people from the DKP table" });
+  const guild = await getGuildById(guildId);
+  if (guild.owner_discord_id === targetDiscordId) {
+    throw new HttpError(400, "The guild leader can't be removed from the DKP table.");
+  }
+  const res = await query(
+    `DELETE FROM guild_memberships gm
+     WHERE gm.guild_id = $1 AND gm.discord_id = $2
+       AND NOT EXISTS (SELECT 1 FROM characters c WHERE c.guild_id = gm.guild_id AND c.discord_id = gm.discord_id)
+     RETURNING 1`,
+    [guildId, typeof targetDiscordId === "string" ? targetDiscordId : ""]
+  );
+  if (res.rows.length === 0) {
+    throw new HttpError(400, "Only people who are no longer in the guild can be removed from the DKP table.");
+  }
 }
 
 // Visible to any guild member (same openness as the DKP totals
