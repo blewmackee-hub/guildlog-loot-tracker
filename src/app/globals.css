@@ -69,18 +69,23 @@
      where it catches the top-left, and a crisp bright rim at the top edge
      (in --panel-lip below). Keep those distinctly brighter than the flat
      tint underneath them so they read as reflections, not just more tint. */
-  --panel-glass:
-    linear-gradient(100deg, rgba(255,250,238,0) 22%, rgba(255,250,238,.16) 42%, rgba(255,250,238,.02) 50%, rgba(255,250,238,0) 68%),
-    radial-gradient(70% 50% at 12% -8%, rgba(255,250,238,.16), rgba(255,250,238,0) 60%),
+  /* the glass without its two shine layers - .panel re-adds a movable shine on top (see "Pointer tilt") */
+  --glass-body:
     linear-gradient(180deg, rgba(226,205,168,.1) 0%, rgba(226,205,168,0) 30%),
     linear-gradient(180deg, rgba(54,46,38,.36), rgba(30,25,21,.36)),
     linear-gradient(rgba(20,16,13,.26), rgba(20,16,13,.26));
-  --panel-glass-deep:
-    linear-gradient(100deg, rgba(255,250,238,0) 22%, rgba(255,250,238,.16) 42%, rgba(255,250,238,.02) 50%, rgba(255,250,238,0) 68%),
-    radial-gradient(70% 50% at 12% -8%, rgba(255,250,238,.16), rgba(255,250,238,0) 60%),
+  --glass-body-deep:
     linear-gradient(180deg, rgba(226,205,168,.1) 0%, rgba(226,205,168,0) 30%),
     linear-gradient(180deg, rgba(48,40,33,.38), rgba(28,24,20,.38)),
     linear-gradient(rgba(20,16,13,.28), rgba(20,16,13,.28));
+  --panel-glass:
+    linear-gradient(100deg, rgba(255,250,238,0) 22%, rgba(255,250,238,.16) 42%, rgba(255,250,238,.02) 50%, rgba(255,250,238,0) 68%),
+    radial-gradient(70% 50% at 12% -8%, rgba(255,250,238,.16), rgba(255,250,238,0) 60%),
+    var(--glass-body);
+  --panel-glass-deep:
+    linear-gradient(100deg, rgba(255,250,238,0) 22%, rgba(255,250,238,.16) 42%, rgba(255,250,238,.02) 50%, rgba(255,250,238,0) 68%),
+    radial-gradient(70% 50% at 12% -8%, rgba(255,250,238,.16), rgba(255,250,238,0) 60%),
+    var(--glass-body-deep);
   --panel-glass-chrome:
     linear-gradient(100deg, rgba(255,250,238,0) 22%, rgba(255,250,238,.16) 42%, rgba(255,250,238,.02) 50%, rgba(255,250,238,0) 68%),
     radial-gradient(70% 50% at 12% -8%, rgba(255,250,238,.16), rgba(255,250,238,0) 60%),
@@ -432,6 +437,35 @@ input[type="range"]::-moz-range-thumb {
   padding: 16px 18px 20px;
   min-height: 420px;
   border-radius: 2px;
+}
+
+/* Pointer tilt + moving shine (src/components/PanelTilt.js). Fine pointers only,
+   desktop-width screens only (phones and small tablets keep the static stripe),
+   never with reduced motion. The glass band is the same layer as in
+   --panel-glass, but shaped by three numbers the script sets from the cursor
+   and clears on leave (registered so they ease instead of jumping): --band
+   slides it, --grow stretches the side nearest the cursor and pulls in the
+   far side, --lean rotates it a few degrees in the corners so it favours that
+   corner. The corner highlight stays put. The transform exists only while
+   .is-tilting, so a resting panel has none. Same look at rest. */
+@property --band { syntax: "<number>"; inherits: false; initial-value: 42; }
+@property --grow { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --lean { syntax: "<number>"; inherits: false; initial-value: 0; }
+@media (hover: hover) and (pointer: fine) and (min-width: 861px) and (prefers-reduced-motion: no-preference) {
+  .panel { --gbody: var(--glass-body); }
+  .panel--detail { --gbody: var(--glass-body-deep); }
+  .panel {
+    background:
+      linear-gradient(calc(100deg + var(--lean) * 1deg), rgba(255,250,238,0) calc(var(--band) * 1% - 20% + var(--grow) * 8%), rgba(255,250,238,.16) calc(var(--band) * 1%), rgba(255,250,238,.02) calc(var(--band) * 1% + 8% + var(--grow) * 4%), rgba(255,250,238,0) calc(var(--band) * 1% + 26% + var(--grow) * 10%)),
+      radial-gradient(70% 50% at 12% -8%, rgba(255,250,238,.16), rgba(255,250,238,0) 60%),
+      var(--gbody);
+    transition: border-color 150ms ease, transform 450ms cubic-bezier(.2, .7, .2, 1), --band 450ms ease, --grow 450ms ease, --lean 450ms ease;
+  }
+  .panel.is-tilting {
+    transform: perspective(1400px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+    transition: border-color 150ms ease, transform 120ms linear, --band 90ms linear, --grow 90ms linear, --lean 90ms linear;
+    will-change: transform;
+  }
 }
 
 .panel-title {
@@ -2148,8 +2182,9 @@ input[type="range"]::-moz-range-thumb {
 .mobile-nav-backdrop { display: none; }
 .mobile-nav-menu { display: none; }
 @media (max-width: 700px) {
-  .app__nav-row { flex-wrap: nowrap; justify-content: space-between; }
-  .tabs, .app__nav-row > .tab--help { display: none; }
+  /* the menu button now lives in the profile bar's action row, so the tab row has nothing left to show on phones */
+  .app__nav-row { display: none; }
+  .mobile-nav-toggle { margin-right: auto; }
   .mobile-nav-toggle {
     display: flex; align-items: center; justify-content: center;
     width: 38px; height: 38px; flex: none;

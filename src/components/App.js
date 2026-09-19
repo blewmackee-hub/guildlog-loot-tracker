@@ -384,7 +384,16 @@ export default function App() {
             onDeleteCharacter={deleteCharacter}
             onLeaveGuild={leaveGuild}
             isSiteAdmin={isSiteAdmin}
-          />
+          >
+            <button
+              className="mobile-nav-toggle"
+              onClick={() => setMobileNavOpen((v) => !v)}
+              aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileNavOpen}
+            >
+              <Menu size={18} strokeWidth={1.75} />
+            </button>
+          </ProfileBar>
         </div>
         <div className="app__nav-row">
           <nav className="tabs">
@@ -396,14 +405,6 @@ export default function App() {
           </nav>
           <button className={`tab tab--help ${tab === "help" ? "tab--active" : ""}`} onClick={() => setTab("help")}>
             Help
-          </button>
-          <button
-            className="mobile-nav-toggle"
-            onClick={() => setMobileNavOpen((v) => !v)}
-            aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileNavOpen}
-          >
-            <Menu size={18} strokeWidth={1.75} />
           </button>
         </div>
       </header>

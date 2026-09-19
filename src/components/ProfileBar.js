@@ -13,7 +13,7 @@ import Modal from "./Modal";
    isSiteAdmin (from GET /api/character, see src/lib/admin.js) just
    decides whether the /admin link shows here - the route itself
    re-checks admin status server-side regardless. */
-export default function ProfileBar({ guildName, activeCharacterId, characters, onSwitch, onCreate, onDeleteCharacter, onLeaveGuild, isSiteAdmin }) {
+export default function ProfileBar({ guildName, activeCharacterId, characters, onSwitch, onCreate, onDeleteCharacter, onLeaveGuild, isSiteAdmin, children }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [confirmingLeave, setConfirmingLeave] = useState(false);
@@ -48,7 +48,6 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
           <option key={c.id} value={c.id}>{c.name}</option>
         ))}
       </select>
-      <div className="profile-bar__actions">
       {adding ? (
         <>
           <input
@@ -70,6 +69,8 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
       ) : (
         <button className="btn-secondary btn-secondary--sm" onClick={() => setAdding(true)}>+ New</button>
       )}
+      <div className="profile-bar__actions">
+      {children /* the mobile menu button, sits at the left of this row on phones */}
       {characters.length > 1 && (
         <button className="btn-secondary btn-secondary--sm profile-bar__leave-trigger" onClick={() => setConfirmingDeleteChar(true)}>
           Delete Character
