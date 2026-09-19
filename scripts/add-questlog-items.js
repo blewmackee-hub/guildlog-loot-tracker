@@ -121,6 +121,15 @@ async function refreshLevels(data) {
   console.log(n, "items updated");
 }
 
+// New icons often 404 on the CDN for a while after a patch but already exist on questlog.gg itself.
+async function iconUrl(icon) {
+  const path = "/throne-and-liberty" + icon.replace(/\.[^./]+$/, "") + ".webp";
+  const cdn = "https://cdn.questlog.gg" + path;
+  if ((await fetch(cdn, { method: "HEAD" })).ok) return cdn;
+  const site = "https://questlog.gg" + path;
+  return (await fetch(site, { method: "HEAD" })).ok ? site : cdn;
+}
+
 async function convert(raw, ctx) {
   const { sf, H, newSources, newSets, catalogs } = ctx;
   const mult = (k) => sf[k]?.multiplier ?? 1;
@@ -131,7 +140,7 @@ async function convert(raw, ctx) {
   if (SLOT[sub]) item.slot = SLOT[sub]; else if (SLOT_GROUP.includes(sub) || WEAPONS.includes(sub)) { item.slot = null; } else throw new Error(`${raw.id}: unknown subCategory ${sub}`);
   if (!RARITY[raw.grade]) throw new Error(`${raw.id}: unknown grade ${raw.grade}`);
   item.rarity = RARITY[raw.grade];
-  item.icon = "https://cdn.questlog.gg/throne-and-liberty" + raw.icon.replace(/\.[^./]+$/, "") + ".webp";
+  item.icon = await iconUrl(raw.icon);
 
   item.sources = sourcesFor(raw, H, newSources);
   if (SLOT_GROUP.includes(sub)) item.slotGroup = sub;

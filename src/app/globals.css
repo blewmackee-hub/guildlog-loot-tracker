@@ -109,14 +109,19 @@
 
 :focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 2px; }
 
-html, body { margin: 0; padding: 0; background: #15110e; color-scheme: dark; }
+html, body { margin: 0; padding: 0; color-scheme: dark; }
+html { background: #15110e; } /* not body: an opaque body would paint over the z-index:-1 background layer below */
 select { color-scheme: dark; }
 
 body {
   font-family: var(--font-ui);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
-  background-attachment: fixed;
+}
+/* Backgrounds live on a fixed layer, not body{background-attachment:fixed}, which repaints every layer on
+   every scroll and every dropdown/blur update. Its own compositor layer is painted once. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; transform: translateZ(0);
   background-image:
     var(--grain),
     var(--mottle),

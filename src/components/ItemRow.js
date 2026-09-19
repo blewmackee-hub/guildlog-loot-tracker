@@ -1,10 +1,14 @@
+import { memo } from "react";
 import { ChevronRight } from "lucide-react";
 import RarityDot from "./RarityDot";
 import ItemIcon from "./ItemIcon";
 import { SLOTS, RARITIES } from "@/lib/gameData";
 import { slotsForGroup } from "@/lib/calculations";
 
-export default function ItemRow({ item, onSelect, selected, index }) {
+// Only the first screenful plays the entrance animation; the rest just appear.
+const ANIMATED_ROWS = 16;
+
+export default memo(function ItemRow({ item, onSelect, selected, index }) {
   const slotLabel = item.slot
     ? SLOTS.find((s) => s.id === item.slot)?.label
     : slotsForGroup(item.slotGroup)[0]?.label;
@@ -12,11 +16,11 @@ export default function ItemRow({ item, onSelect, selected, index }) {
   const isBloomRarity = item.rarity === "epic" || item.rarity === "heroic";
   return (
     <button
-      className={`item-row scan-row ${isBloomRarity ? "item-row--bloom" : ""} ${selected ? "item-row--selected" : ""}`}
+      className={`item-row ${index < ANIMATED_ROWS ? "scan-row" : ""} ${isBloomRarity && index < ANIMATED_ROWS ? "item-row--bloom" : ""} ${selected ? "item-row--selected" : ""}`}
       onClick={() => onSelect(item)}
       style={{
         "--rarity-color": rarityColor,
-        animationDelay: index != null ? `${Math.min(index * 30, 400)}ms` : undefined,
+        animationDelay: index < ANIMATED_ROWS ? `${index * 30}ms` : undefined,
       }}
     >
       <RarityDot rarity={item.rarity} />
@@ -27,4 +31,4 @@ export default function ItemRow({ item, onSelect, selected, index }) {
       <ChevronRight size={15} strokeWidth={1.5} />
     </button>
   );
-}
+});

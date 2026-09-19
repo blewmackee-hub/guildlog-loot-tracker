@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -61,6 +61,7 @@ export default function App() {
   const [savedItems, setSavedItems] = useState({});
   const [filterGroup, setFilterGroup] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [more, setMore] = useState({ key: "", n: 60 }); // rows in the DOM; more load as the list end scrolls into view
   const [pendingSlot, setPendingSlot] = useState(null);
   const [buildError, setBuildError] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -238,6 +239,17 @@ export default function App() {
       .filter((i) => !query || i.name.toLowerCase().includes(query))
       .sort((a, b) => groupRankFor(a) - groupRankFor(b) || rarityRankFor(a) - rarityRankFor(b) || slotRankFor(a) - slotRankFor(b) || levelRankFor(a) - levelRankFor(b) || a.name.localeCompare(b.name));
   }, [filterGroup, searchQuery]);
+
+  const listKey = `${filterGroup}|${searchQuery}`;
+  const shown = more.key === listKey ? more.n : 60; // a new filter/search starts over at 60
+  // Callback ref: (re)observes whenever the tripwire element mounts or shown/listKey change, so a remounted list can't leave a stale observer.
+  const ioRef = useRef(null);
+  const setMoreRef = useCallback((el) => {
+    ioRef.current?.disconnect();
+    if (!el) return;
+    ioRef.current = new IntersectionObserver(([e]) => e.isIntersecting && setMore({ key: listKey, n: shown + 60 }), { rootMargin: "300px" });
+    ioRef.current.observe(el);
+  }, [shown, listKey]);
 
   // Only one Heroic-rarity item may be equipped per broad equipment type
   // (weapon/armor/accessory) at once - a real in-game restriction, not a
@@ -458,9 +470,11 @@ export default function App() {
             </div>
             <div className="item-list">
               {itemList.length === 0 && <p className="muted">No items match &quot;{searchQuery}&quot;.</p>}
-              {itemList.map((item, i) => (
+              {itemList.slice(0, shown).map((item, i) => (
                 <ItemRow key={item.id} item={item} index={i} selected={selectedItem?.id === item.id} onSelect={setSelectedItem} />
               ))}
+              {/* invisible 400px tripwire overlapping the last rows, so more load before the user reaches the end */}
+              {shown < itemList.length && <div ref={setMoreRef} style={{ height: 400, marginTop: -400, flex: "none", pointerEvents: "none" }} />}
             </div>
           </div>
           <div className="layout-divider" />
