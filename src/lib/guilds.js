@@ -4,6 +4,11 @@ import { query } from "@/lib/db";
 const PIN_ATTEMPT_LIMIT = 5;
 const PIN_GUILD_ATTEMPT_LIMIT = 30;
 const PIN_ATTEMPT_WINDOW_MINUTES = 15;
+const MAX_GUILD_NAME_LENGTH = 40;
+const MAX_CHARACTER_NAME_LENGTH = 30;
+const MAX_CHARACTERS_PER_GUILD = 10; // per Discord account
+const MAX_DKP_REASON_LENGTH = 200;
+const MAX_DKP_DELTA = 1_000_000;
 
 export async function searchGuilds(searchText) {
   const q = (searchText || "").trim();
@@ -35,8 +40,11 @@ export async function changeGuildPin({ guildId, requesterDiscordId, pin }) {
 }
 
 export async function registerGuild({ name, pin, ownerDiscordId }) {
-  const trimmedName = (name || "").trim();
+  const trimmedName = (typeof name === "string" ? name : "").trim();
   if (trimmedName.length < 2) throw new HttpError(400, "Guild name must be at least 2 characters.");
+  if (trimmedName.length > MAX_GUILD_NAME_LENGTH) {
+    throw new HttpError(400, `Guild name can be at most ${MAX_GUILD_NAME_LENGTH} characters.`);
+  }
   const pinHash = await hashPin(pin);
   try {
     const res = await query(
@@ -87,13 +95,20 @@ export async function verifyGuildPin({ guildId, pin, discordId }) {
 }
 
 export async function getOrCreateCharacter({ discordId, guildId, name }) {
-  const characterName = (name || "").trim() || "Main";
+  const characterName = (typeof name === "string" ? name : "").trim() || "Main";
+  if (characterName.length > MAX_CHARACTER_NAME_LENGTH) {
+    throw new HttpError(400, `Character name can be at most ${MAX_CHARACTER_NAME_LENGTH} characters.`);
+  }
   const existing = await query(
     `SELECT id, name, build, wishlist FROM characters WHERE discord_id = $1 AND guild_id = $2 AND name = $3`,
     [discordId, guildId, characterName]
   );
   if (existing.rows.length > 0) return existing.rows[0];
 
+  const count = await query(`SELECT count(*)::int AS n FROM characters WHERE discord_id = $1 AND guild_id = $2`, [discordId, guildId]);
+  if (count.rows[0].n >= MAX_CHARACTERS_PER_GUILD) {
+    throw new HttpError(400, `You can have at most ${MAX_CHARACTERS_PER_GUILD} characters in one guild.`);
+  }
   const created = await query(
     `INSERT INTO characters (discord_id, guild_id, name) VALUES ($1, $2, $3) RETURNING id, name, build, wishlist`,
     [discordId, guildId, characterName]
@@ -321,14 +336,30 @@ export async function adjustDkp({ guildId, targetDiscordIds, requesterDiscordId,
   if (requesterRole === "member") {
     throw new HttpError(403, "Only officers and the guild leader can edit DKP.");
   }
-  if (!Number.isInteger(delta) || delta === 0) {
-    throw new HttpError(400, "DKP adjustment must be a non-zero whole number.");
+  if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > MAX_DKP_DELTA) {
+    throw new HttpError(400, `DKP adjustment must be a non-zero whole number up to ${MAX_DKP_DELTA.toLocaleString("en-US")}.`);
+  }
+  if (!Array.isArray(targetDiscordIds) || !targetDiscordIds.every((id) => typeof id === "string")) {
+    throw new HttpError(400, "No members selected.");
   }
   const ids = [...new Set(targetDiscordIds)].filter(Boolean);
   if (ids.length === 0) {
     throw new HttpError(400, "No members selected.");
   }
-  const trimmedReason = (reason || "").trim() || null;
+  // Only people who belong to this guild (a character, or a roster row -
+  // kicked members keep theirs so their DKP survives a rejoin).
+  const known = await query(
+    `SELECT count(DISTINCT id)::int AS n FROM (
+       SELECT discord_id AS id FROM characters WHERE guild_id = $1 AND discord_id = ANY($2::text[])
+       UNION ALL
+       SELECT discord_id FROM guild_memberships WHERE guild_id = $1 AND discord_id = ANY($2::text[])
+     ) t`,
+    [guildId, ids]
+  );
+  if (known.rows[0].n !== ids.length) {
+    throw new HttpError(400, "Some selected people aren't members of this guild.");
+  }
+  const trimmedReason = (typeof reason === "string" ? reason : "").trim().slice(0, MAX_DKP_REASON_LENGTH) || null;
   await Promise.all(ids.map((discordId) => ensureGuildMembership({ guildId, discordId })));
   await query(
     `UPDATE guild_memberships SET dkp_total = dkp_total + $1 WHERE guild_id = $2 AND discord_id = ANY($3::text[])`,
