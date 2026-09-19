@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireDiscordId, errorResponse } from "@/lib/apiHelpers";
-import { getActiveCharacter } from "@/lib/guildSession";
+import { requireDiscordId, getVerifiedActiveGuild, errorResponse } from "@/lib/apiHelpers";
 import { getItemOwners, HttpError } from "@/lib/guilds";
 
 // GET /api/guild/item-owners?itemId=... - which of the signed-in
@@ -10,8 +9,8 @@ import { getItemOwners, HttpError } from "@/lib/guilds";
 // since the point is finding who to ask about a trade or loaner.
 export async function GET(request) {
   try {
-    await requireDiscordId();
-    const active = await getActiveCharacter();
+    const discordId = await requireDiscordId();
+    const active = await getVerifiedActiveGuild(discordId);
     if (!active) return NextResponse.json({ owners: [] });
     const itemId = new URL(request.url).searchParams.get("itemId");
     if (!itemId) throw new HttpError(400, "itemId is required.");
