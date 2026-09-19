@@ -109,13 +109,30 @@ async function listCharacters({ discordId, guildId }) {
   return res.rows;
 }
 
+// build/wishlist are stored as JSONB and scanned guild-wide (item-owners,
+// wishlist tally) - a non-object (or a huge blob) from one member would
+// break those for everyone, so reject anything but a reasonably sized
+// plain object here rather than trusting the client.
+const CHARACTER_JSON_MAX_BYTES = 200_000;
+
+function requireJsonObject(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new HttpError(400, `${label} must be an object.`);
+  }
+  const json = JSON.stringify(value);
+  if (json.length > CHARACTER_JSON_MAX_BYTES) throw new HttpError(413, `${label} is too large.`);
+  return json;
+}
+
 export async function saveCharacterData({ characterId, discordId, build, wishlist }) {
+  const buildJson = requireJsonObject(build, "build");
+  const wishlistJson = requireJsonObject(wishlist, "wishlist");
   // discordId in the WHERE clause, not just id, so one signed-in
   // user can never overwrite another's character even if a
   // characterId leaked/was guessed.
   await query(
     `UPDATE characters SET build = $1, wishlist = $2, updated_at = now() WHERE id = $3 AND discord_id = $4`,
-    [JSON.stringify(build), JSON.stringify(wishlist), characterId, discordId]
+    [buildJson, wishlistJson, characterId, discordId]
   );
 }
 
@@ -359,12 +376,12 @@ export async function getDkpLog({ guildId, limit = 50 }) {
 export async function getItemOwners({ guildId, itemId }) {
   const res = await query(
     `SELECT u.username, c.name AS "characterName",
-            EXISTS (SELECT 1 FROM jsonb_each(c.build) b WHERE b.value->>'itemId' = $2) AS equipped,
+            EXISTS (SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(c.build) = 'object' THEN c.build ELSE '{}'::jsonb END) b WHERE b.value->>'itemId' = $2) AS equipped,
             (c.wishlist ? $2) AS wishlisted
      FROM characters c
      JOIN users u ON u.discord_id = c.discord_id
      WHERE c.guild_id = $1
-       AND (EXISTS (SELECT 1 FROM jsonb_each(c.build) b WHERE b.value->>'itemId' = $2) OR c.wishlist ? $2)
+       AND (EXISTS (SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(c.build) = 'object' THEN c.build ELSE '{}'::jsonb END) b WHERE b.value->>'itemId' = $2) OR c.wishlist ? $2)
      ORDER BY u.username, c.name`,
     [guildId, itemId]
   );
