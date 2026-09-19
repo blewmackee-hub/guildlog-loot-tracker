@@ -1106,6 +1106,9 @@ input[type="range"]::-moz-range-thumb {
 .party-planner__slots .custom-select__trigger svg { width: 10px; height: 10px; }
 .party-planner__slots .custom-select__label { text-align: center; }
 .party-planner__slots { gap: 3px 5px; }
+/* Screenshot window: names/classes sit on the pastel group cards, so use dark ink instead of the light UI ink */
+.party-screenshot__groups .party-planner__slot-value { color: #1b1510; text-shadow: none; font-weight: 700; }
+.party-screenshot__groups .party-planner__slot-value.muted { color: rgba(27, 21, 16, .5); font-weight: 500; }
 .party-planner__slot-value {
   display: block;
   grid-column: 1 / -1;

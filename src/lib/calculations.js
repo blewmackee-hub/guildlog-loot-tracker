@@ -41,7 +41,7 @@ export function resolveStatValue(entry, level, levelRange) {
    three ore types. The earlier formula (L/4 - 6.125) overshot these by
    ~40%, so costs appear to have dropped in the patch. Above level 81
    (caps are now 90, and 93 for archboss weapons) this is extrapolation. */
-export function estimateInheritCost(fromLevel, toLevel) {
+function estimateInheritCost(fromLevel, toLevel) {
   if (toLevel <= fromLevel) return 0;
   let total = 0;
   for (let lvl = fromLevel + 1; lvl <= toLevel; lvl++) {

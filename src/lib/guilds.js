@@ -42,7 +42,7 @@ export async function registerGuild({ name, pin, ownerDiscordId }) {
    (guild, discordId) pair has PIN_ATTEMPT_LIMIT failed attempts
    inside the trailing window - a successful attempt doesn't reset
    the window early, it just naturally ages out. */
-export async function checkPinRateLimit({ guildId, discordId }) {
+async function checkPinRateLimit({ guildId, discordId }) {
   const res = await query(
     `SELECT count(*)::int AS failed_count
      FROM guild_pin_attempts
@@ -88,7 +88,7 @@ export async function getOrCreateCharacter({ discordId, guildId, name }) {
   return created.rows[0];
 }
 
-export async function listCharacters({ discordId, guildId }) {
+async function listCharacters({ discordId, guildId }) {
   const res = await query(
     `SELECT id, name FROM characters WHERE discord_id = $1 AND guild_id = $2 ORDER BY created_at`,
     [discordId, guildId]

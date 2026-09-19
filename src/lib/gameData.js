@@ -225,7 +225,7 @@ export const STAT_GROUPS = [
 ];
 
 export const STAT_LABELS = STAT_GROUPS.reduce((acc, g) => ({ ...acc, ...g.labels }), {});
-export const STAT_UNITS = STAT_GROUPS.reduce((acc, g) => ({ ...acc, ...(g.units || {}) }), {});
+const STAT_UNITS = STAT_GROUPS.reduce((acc, g) => ({ ...acc, ...(g.units || {}) }), {});
 export function unitFor(key) {
   if (key in STAT_UNITS) return STAT_UNITS[key];
   if (key.endsWith("Pct")) return "%";
@@ -259,7 +259,7 @@ export const PARTY_SLOT_COUNT = 6;
    redundant "Melee/Ranged/Magic X" lines is worse than showing the
    one plain stat name the game itself would show. If a type-specific
    bonus makes one of the three differ, all three stay split. */
-export const UNIFIED_STAT_GROUPS = [
+const UNIFIED_STAT_GROUPS = [
   { keys: ["meleeDefense", "rangedDefense", "magicDefense"], label: "Defense" },
   { keys: ["meleeHit", "rangedHit", "magicHit"], label: "Hit Chance" },
   { keys: ["meleeCrit", "rangedCrit", "magicCrit"], label: "Critical Hit Chance" },
