@@ -425,6 +425,7 @@ export default function DkpTab() {
                         )
                       )}
                     </span>
+                    {m.characters?.length > 0 && <span className="muted dkp-table__chars">{m.characters.join(", ")}</span>}
                   </td>
                   <td className={`dkp-table__total ${flash[m.discordId] ? `dkp-table__total--flash-${flash[m.discordId]}` : ""}`}>
                     {m.dkpTotal}

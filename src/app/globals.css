@@ -953,6 +953,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ---- danger zone ------------------------------------------------------- */
+.dkp-table__chars { display: block; margin-top: 2px; font-size: 11px; }
 .dkp-row__left-badge { margin-left: 8px; font-size: 11px; }
 .dkp-row__remove-confirm { display: inline-flex; align-items: center; gap: 8px; margin-left: 10px; flex-wrap: wrap; }
 .guild-members__pin { margin-top: 26px; max-width: 320px; align-items: stretch; }

@@ -328,7 +328,8 @@ export async function listGuildRoster({ guildId }) {
 
   const res = await query(
     `SELECT gm.discord_id AS "discordId", u.username, gm.dkp_total AS "dkpTotal", gm.is_officer AS "isOfficer",
-            EXISTS (SELECT 1 FROM characters c WHERE c.guild_id = gm.guild_id AND c.discord_id = gm.discord_id) AS "inGuild"
+            EXISTS (SELECT 1 FROM characters c WHERE c.guild_id = gm.guild_id AND c.discord_id = gm.discord_id) AS "inGuild",
+            COALESCE((SELECT json_agg(c.name ORDER BY lower(c.name)) FROM characters c WHERE c.guild_id = gm.guild_id AND c.discord_id = gm.discord_id), '[]'::json) AS characters
      FROM guild_memberships gm
      JOIN users u ON u.discord_id = gm.discord_id
      WHERE gm.guild_id = $1
@@ -342,6 +343,7 @@ export async function listGuildRoster({ guildId }) {
       username: r.username,
       dkpTotal: r.dkpTotal,
       inGuild: r.inGuild,
+      characters: r.characters,
       role: roleFor({ guild, discordId: r.discordId, isOfficer: r.isOfficer }),
     }))
     // Leader, then officers, then members - alphabetical (already the

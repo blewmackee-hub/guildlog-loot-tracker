@@ -214,11 +214,11 @@ export default function App() {
     router.push("/guild");
   }
 
-  // After GuildMembers hands ownership to someone else, this account
-  // no longer owns the guild - refetch so isGuildOwner flips off, and
-  // bail out of the (now inaccessible) Members tab if that's where
-  // they were standing.
-  async function refreshAfterOwnerChange() {
+  // After GuildMembers changes something about THIS account - ownership
+  // handed off, or one of its own characters removed - refetch so the
+  // owner flag and the "Playing as" list catch up, and bail out of the
+  // (now inaccessible) Members tab if that's where they were standing.
+  async function refreshContext() {
     const res = await fetch("/api/character");
     const data = await res.json();
     if (!data.character) return;
@@ -239,7 +239,7 @@ export default function App() {
         setBuildError(data.error || "Something went wrong.");
         return;
       }
-      await refreshAfterOwnerChange();
+      await refreshContext();
     } finally {
       setClaimingLeadership(false);
     }
@@ -551,7 +551,7 @@ export default function App() {
 
       {tab === "members" && (isGuildOwner || isGuildOfficer) && (
         <div className="layout">
-          <GuildMembers isOwner={isGuildOwner} guildName={guildName} onDeleteGuild={deleteGuild} onOwnerChanged={refreshAfterOwnerChange} />
+          <GuildMembers isOwner={isGuildOwner} guildName={guildName} onDeleteGuild={deleteGuild} onChanged={refreshContext} />
         </div>
       )}
 

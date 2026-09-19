@@ -12,7 +12,7 @@ import { postJSON } from "@/lib/apiClient";
    re-checks every one of these - this only decides what to show. Removing
    an account's last character is a full kick (see kickCharacter in
    src/lib/guilds.js). */
-export default function GuildMembers({ isOwner, guildName, onDeleteGuild, onOwnerChanged }) {
+export default function GuildMembers({ isOwner, guildName, onDeleteGuild, onChanged }) {
   const [members, setMembers] = useState(null);
   const [me, setMe] = useState(null); // this account's discordId, from any of its own rows
   const [error, setError] = useState(null);
@@ -49,6 +49,7 @@ export default function GuildMembers({ isOwner, guildName, onDeleteGuild, onOwne
       await postJSON("/api/guild/members/kick", { characterId });
       setConfirming(null);
       load();
+      onChanged?.(); // the removed character may be one of your own (header dropdown)
     } catch (e) {
       setError(e.message);
     } finally {
@@ -63,7 +64,7 @@ export default function GuildMembers({ isOwner, guildName, onDeleteGuild, onOwne
       await postJSON("/api/guild/members/transfer-owner", { discordId });
       setConfirming(null);
       load();
-      onOwnerChanged?.();
+      onChanged?.();
     } catch (e) {
       setError(e.message);
     } finally {

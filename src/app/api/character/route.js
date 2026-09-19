@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { requireDiscordId, requireActiveGuild, errorResponse } from "@/lib/apiHelpers";
-import { getActiveCharacter, setActiveCharacter } from "@/lib/guildSession";
+import { requireDiscordId, requireActiveGuild, getVerifiedActiveGuild, errorResponse } from "@/lib/apiHelpers";
+import { setActiveCharacter } from "@/lib/guildSession";
+import { query } from "@/lib/db";
 import { saveCharacterData, getOrCreateCharacter, getCharacterContext, deleteCharacter } from "@/lib/guilds";
 import { isAdmin } from "@/lib/admin";
 
@@ -14,10 +15,20 @@ export async function GET() {
   try {
     const discordId = await requireDiscordId();
     const isSiteAdmin = isAdmin(discordId);
-    const active = await getActiveCharacter();
+    const active = await getVerifiedActiveGuild(discordId);
     if (!active) return NextResponse.json({ character: null, guild: null, characters: [], isSiteAdmin });
 
-    const ctx = await getCharacterContext({ discordId, characterId: active.characterId });
+    let ctx = await getCharacterContext({ discordId, characterId: active.characterId });
+    if (!ctx) {
+      // The active character is gone (removed by the guild owner, or
+      // deleted elsewhere) - fall back to another of this account's
+      // characters in the same guild rather than dropping to the guild picker.
+      const next = await query(`SELECT id FROM characters WHERE discord_id = $1 AND guild_id = $2 ORDER BY created_at LIMIT 1`, [discordId, active.guildId]);
+      if (next.rows[0]) {
+        await setActiveCharacter({ guildId: active.guildId, characterId: next.rows[0].id });
+        ctx = await getCharacterContext({ discordId, characterId: next.rows[0].id });
+      }
+    }
     return NextResponse.json(ctx ? { ...ctx, isSiteAdmin } : { character: null, guild: null, characters: [], isSiteAdmin });
   } catch (e) {
     return errorResponse(e);
