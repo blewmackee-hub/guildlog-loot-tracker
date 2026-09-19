@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Crown, Shield, Check, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { postJSON } from "@/lib/apiClient";
 
 // The "decay just ran" notice comes back from the server for 48 hours
@@ -106,7 +106,6 @@ function DecayControl({ decay, canEdit, onSave, busy }) {
 export default function DkpTab() {
   const [roster, setRoster] = useState(null);
   const [myRole, setMyRole] = useState("member");
-  const [officerCap, setOfficerCap] = useState(3);
   const [decay, setDecay] = useState(null);
   const [log, setLog] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -135,7 +134,6 @@ export default function DkpTab() {
         if (data.error) throw new Error(data.error);
         setRoster(data.roster);
         setMyRole(data.myRole);
-        setOfficerCap(data.officerCap);
         setDecay(data.decay);
         if (data.decayApplied && !decayDismissed(data.decayApplied.appliedAt)) setDecayBanner(data.decayApplied);
         setLog(data.log || []);
@@ -181,8 +179,6 @@ export default function DkpTab() {
   }
 
   const canEdit = myRole === "leader" || myRole === "officer";
-  const canAssignOfficers = myRole === "leader";
-  const officerCount = roster ? roster.filter((m) => m.role === "officer").length : 0;
   const allSelected = roster && roster.length > 0 && roster.every((m) => selected.has(m.discordId));
 
   function toggleSelect(discordId) {
@@ -220,19 +216,6 @@ export default function DkpTab() {
     const { discordIds, delta, reason } = undo;
     dismissUndo();
     adjustDkp(discordIds, -delta, "undo", `Undo: ${reason || "adjustment"}`, { offersUndo: false });
-  }
-
-  async function setOfficer(discordId, makeOfficer) {
-    setBusyKey(`officer:${discordId}`);
-    setError(null);
-    try {
-      await postJSON("/api/guild/officers", { discordId, makeOfficer });
-      load();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusyKey(null);
-    }
   }
 
   async function removeMember(discordId) {
@@ -291,9 +274,6 @@ export default function DkpTab() {
       )}
       {!roster && !error && <p className="muted">Loading…</p>}
       {roster && roster.length === 0 && <p className="muted">No members yet.</p>}
-      {canAssignOfficers && (
-        <p className="muted dkp-tab__cap-note">Officer slots: {officerCount}/{officerCap}</p>
-      )}
 
       {canEdit && roster && roster.length > 0 && (
         <div className="dkp-reason-row">
@@ -379,7 +359,6 @@ export default function DkpTab() {
                     </th>
                   </>
                 )}
-                {canAssignOfficers && <th />}
               </tr>
             </thead>
             <tbody>
@@ -489,33 +468,6 @@ export default function DkpTab() {
                         </div>
                       </td>
                     </>
-                  )}
-                  {canAssignOfficers && (
-                    <td>
-                      {m.role !== "leader" && (
-                        m.role === "officer" ? (
-                          <button
-                            className="guild-member-row__kick"
-                            title="Remove officer"
-                            aria-label={`Remove ${m.username} as officer`}
-                            disabled={busyKey === `officer:${m.discordId}`}
-                            onClick={() => setOfficer(m.discordId, false)}
-                          >
-                            <Shield size={14} strokeWidth={1.5} />
-                          </button>
-                        ) : (
-                          <button
-                            className="guild-member-row__promote"
-                            title={officerCount >= officerCap ? `Officer slots full (${officerCap}/${officerCap})` : "Make officer"}
-                            aria-label={`Make ${m.username} an officer`}
-                            disabled={busyKey === `officer:${m.discordId}` || officerCount >= officerCap}
-                            onClick={() => setOfficer(m.discordId, true)}
-                          >
-                            <Crown size={14} strokeWidth={1.5} />
-                          </button>
-                        )
-                      )}
-                    </td>
                   )}
                 </tr>
               ))}

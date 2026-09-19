@@ -577,7 +577,7 @@ export default function App() {
             </p>
             <p>
               The <strong>DKP</strong> tab lists every guild member&apos;s Dragon Kill Points. Officers and the guild
-              leader can edit totals; the leader can also promote up to three members to officer, giving them editing
+              leader can edit totals; the leader can promote up to three members to officer from the <strong>Members</strong> tab, giving them editing
               privileges in both the <strong>Parties</strong> and <strong>DKP</strong> tabs.
             </p>
             <p>

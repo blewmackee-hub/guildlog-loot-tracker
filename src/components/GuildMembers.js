@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Crown, X } from "lucide-react";
+import { Crown, Shield, X } from "lucide-react";
 import { postJSON } from "@/lib/apiClient";
 
 /* Guild roster, one row per CHARACTER (with the Discord account it
@@ -12,6 +12,9 @@ import { postJSON } from "@/lib/apiClient";
    re-checks every one of these - this only decides what to show. Removing
    an account's last character is a full kick (see kickCharacter in
    src/lib/guilds.js). */
+// Mirrors OFFICER_CAP in src/lib/guilds.js, which enforces it.
+const OFFICER_CAP = 3;
+
 export default function GuildMembers({ isOwner, guildName, onDeleteGuild, onChanged }) {
   const [members, setMembers] = useState(null);
   const [me, setMe] = useState(null); // this account's discordId, from any of its own rows
@@ -72,6 +75,20 @@ export default function GuildMembers({ isOwner, guildName, onDeleteGuild, onChan
     }
   }
 
+  async function setOfficer(discordId, makeOfficer) {
+    setBusyKey(`officer:${discordId}`);
+    setError(null);
+    try {
+      await postJSON("/api/guild/officers", { discordId, makeOfficer });
+      load();
+      onChanged?.();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
   async function changePin(e) {
     e.preventDefault();
     setPinBusy(true);
@@ -97,9 +114,12 @@ export default function GuildMembers({ isOwner, guildName, onDeleteGuild, onChan
     return isOwner || (!m.isOwner && !m.isOfficer);
   }
 
+  const officerCount = members ? new Set(members.filter((x) => x.isOfficer && !x.isOwner).map((x) => x.discordId)).size : 0;
+
   return (
     <div className="guild-members">
       <h3 className="panel-title">Guild Members</h3>
+      {isOwner && <p className="muted">Officer slots: {officerCount}/{OFFICER_CAP}</p>}
       {error && <p className="auth-error" role="alert">{error}</p>}
       {!members && !error && <p className="muted">Loading…</p>}
       {members && members.length === 0 && <p className="muted">No members yet.</p>}
@@ -136,6 +156,17 @@ export default function GuildMembers({ isOwner, guildName, onDeleteGuild, onChan
             )
           ) : (
             <div className="guild-member-row__actions">
+              {isOwner && !m.isOwner && (
+                <button
+                  className={m.isOfficer ? "guild-member-row__kick" : "guild-member-row__promote"}
+                  title={m.isOfficer ? "Remove officer" : officerCount >= OFFICER_CAP ? `Officer slots full (${OFFICER_CAP}/${OFFICER_CAP})` : "Make officer"}
+                  aria-label={m.isOfficer ? `Remove ${m.username} as officer` : `Make ${m.username} an officer`}
+                  disabled={busyKey === `officer:${m.discordId}` || (!m.isOfficer && officerCount >= OFFICER_CAP)}
+                  onClick={() => setOfficer(m.discordId, !m.isOfficer)}
+                >
+                  <Shield size={15} strokeWidth={1.5} />
+                </button>
+              )}
               {isOwner && !m.isOwner && (
                 <button className="guild-member-row__promote" title="Make owner" aria-label={`Make ${m.username} the owner`} onClick={() => setConfirming({ type: "promote", characterId: m.characterId, discordId: m.discordId })}>
                   <Crown size={15} strokeWidth={1.5} />
