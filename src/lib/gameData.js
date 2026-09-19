@@ -200,7 +200,7 @@ export const STAT_GROUPS = [
       "sideEndurance", "sideHeavyAtk", "sideHeavyAtkEvasion", "sideEvasion", "sideDamageReduction",
       "raw_front_all_evasion", "raw_side_all_evasion", "raw_front_damage_reduction", "raw_side_damage_reduction",
       "raw_side_all_double_attack", "raw_front_all_critical_defense", "raw_side_all_critical_defense",
-      "raw_front_all_double_defense", "raw_side_all_double_defense",
+      "raw_front_all_double_defense", "raw_side_all_double_defense", "raw_rear_damage_reduction",
     ],
     labels: {
       sideHitChance: "Side Hit Chance", backCriticalHit: "Back Critical Hit", backHeavyAtkChance: "Back Heavy Attack Chance", backHitChance: "Back Hit Chance",
@@ -211,6 +211,7 @@ export const STAT_GROUPS = [
       raw_side_all_double_attack: "Side Heavy Attack Chance",
       raw_front_all_critical_defense: "Front Critical Hit Defense", raw_side_all_critical_defense: "Side Critical Hit Defense",
       raw_front_all_double_defense: "Front Heavy Attack Defense", raw_side_all_double_defense: "Side Heavy Attack Defense",
+      raw_rear_damage_reduction: "Rear Damage Reduction",
     },
   },
   {
