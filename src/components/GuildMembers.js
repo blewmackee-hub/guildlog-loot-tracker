@@ -19,6 +19,11 @@ export default function GuildMembers({ guildName, onDeleteGuild, onOwnerChanged 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteTypedName, setDeleteTypedName] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [pinBusy, setPinBusy] = useState(false);
+  const [pinMsg, setPinMsg] = useState(null); // { ok, text }
+  const pinsMismatch = newPin.length > 0 && confirmPin.length > 0 && newPin !== confirmPin;
 
   function load() {
     fetch("/api/guild/members")
@@ -58,6 +63,22 @@ export default function GuildMembers({ guildName, onDeleteGuild, onOwnerChanged 
       setError(e.message);
     } finally {
       setBusyKey(null);
+    }
+  }
+
+  async function changePin(e) {
+    e.preventDefault();
+    setPinBusy(true);
+    setPinMsg(null);
+    try {
+      await postJSON("/api/guild/pin", { pin: newPin });
+      setNewPin("");
+      setConfirmPin("");
+      setPinMsg({ ok: true, text: "PIN changed. Share the new one with anyone who needs to join." });
+    } catch (err) {
+      setPinMsg({ ok: false, text: err.message });
+    } finally {
+      setPinBusy(false);
     }
   }
 
@@ -108,6 +129,42 @@ export default function GuildMembers({ guildName, onDeleteGuild, onOwnerChanged 
           )}
         </div>
       ))}
+
+      <form className="guild-form guild-members__pin" onSubmit={changePin}>
+        <h4 className="guild-members__pin-title">Change guild PIN</h4>
+        <input
+          className="guild-form__input"
+          type="password"
+          inputMode="numeric"
+          maxLength={6}
+          placeholder="New PIN (6 digits)"
+          aria-label="New guild PIN, 6 digits"
+          autoComplete="off"
+          spellCheck={false}
+          value={newPin}
+          onChange={(e) => setNewPin(e.target.value)}
+        />
+        <input
+          className={`guild-form__input ${pinsMismatch ? "guild-form__input--invalid" : ""}`}
+          type="password"
+          inputMode="numeric"
+          maxLength={6}
+          placeholder="Confirm new PIN"
+          aria-label="Confirm new guild PIN"
+          aria-invalid={pinsMismatch}
+          autoComplete="off"
+          spellCheck={false}
+          value={confirmPin}
+          onChange={(e) => setConfirmPin(e.target.value)}
+        />
+        {pinsMismatch && <span className="guild-form__hint guild-form__hint--danger">PINs don&apos;t match.</span>}
+        {pinMsg && (
+          <span role="status" className={`guild-form__hint ${pinMsg.ok ? "" : "guild-form__hint--danger"}`}>{pinMsg.text}</span>
+        )}
+        <button type="submit" className="btn-secondary" disabled={pinBusy || newPin.length !== 6 || newPin !== confirmPin}>
+          {pinBusy ? "Saving…" : "Change PIN"}
+        </button>
+      </form>
 
       <div className="danger-zone">
         <h4>Clicking this will erase all guild data, proceed with caution</h4>

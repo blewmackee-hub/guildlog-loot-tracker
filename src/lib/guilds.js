@@ -18,12 +18,26 @@ export async function searchGuilds(searchText) {
   return res.rows;
 }
 
+async function hashPin(pin) {
+  if (!/^\d{6}$/.test(pin || "")) throw new HttpError(400, "PIN must be exactly 6 digits.");
+  return bcrypt.hash(pin, 10);
+}
+
+// Owner-only. Existing members keep their characters; only the PIN
+// needed to join changes.
+export async function changeGuildPin({ guildId, requesterDiscordId, pin }) {
+  const guild = await getGuildById(guildId);
+  if (!guild) throw new HttpError(404, "Guild not found.");
+  if (guild.owner_discord_id !== requesterDiscordId) {
+    throw new HttpError(403, "Only the guild owner can change the PIN.");
+  }
+  await query(`UPDATE guilds SET pin_hash = $1 WHERE id = $2`, [await hashPin(pin), guildId]);
+}
+
 export async function registerGuild({ name, pin, ownerDiscordId }) {
   const trimmedName = (name || "").trim();
   if (trimmedName.length < 2) throw new HttpError(400, "Guild name must be at least 2 characters.");
-  if (!/^\d{6}$/.test(pin || "")) throw new HttpError(400, "PIN must be exactly 6 digits.");
-
-  const pinHash = await bcrypt.hash(pin, 10);
+  const pinHash = await hashPin(pin);
   try {
     const res = await query(
       `INSERT INTO guilds (name, pin_hash, owner_discord_id) VALUES ($1, $2, $3) RETURNING id, name, created_at`,
