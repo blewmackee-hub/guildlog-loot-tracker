@@ -13,10 +13,11 @@ import Modal from "./Modal";
    isSiteAdmin (from GET /api/character, see src/lib/admin.js) just
    decides whether the /admin link shows here - the route itself
    re-checks admin status server-side regardless. */
-export default function ProfileBar({ guildName, activeCharacterId, characters, onSwitch, onCreate, onLeaveGuild, isSiteAdmin }) {
+export default function ProfileBar({ guildName, activeCharacterId, characters, onSwitch, onCreate, onDeleteCharacter, onLeaveGuild, isSiteAdmin }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [confirmingDeleteChar, setConfirmingDeleteChar] = useState(false);
   const [leaveTypedName, setLeaveTypedName] = useState("");
 
   function submit() {
@@ -68,6 +69,31 @@ export default function ProfileBar({ guildName, activeCharacterId, characters, o
         </>
       ) : (
         <button className="btn-secondary btn-secondary--sm" onClick={() => setAdding(true)}>+ New</button>
+      )}
+      {characters.length > 1 && (
+        <button className="btn-secondary btn-secondary--sm profile-bar__leave-trigger" onClick={() => setConfirmingDeleteChar(true)}>
+          Delete Character
+        </button>
+      )}
+      {confirmingDeleteChar && (
+        <Modal title="Delete Character?" tone="danger" onClose={() => setConfirmingDeleteChar(false)}>
+          <p className="profile-bar__leave-warning">
+            This permanently erases <strong>{characters.find((c) => c.id === activeCharacterId)?.name}</strong>&apos;s build and
+            wishlist. Your other characters in {guildName} are not affected.
+          </p>
+          <div className="modal-panel__actions">
+            <button className="btn-secondary btn-secondary--sm" onClick={() => setConfirmingDeleteChar(false)}>Cancel</button>
+            <button
+              className="profile-bar__leave-confirm"
+              onClick={() => {
+                setConfirmingDeleteChar(false);
+                onDeleteCharacter(activeCharacterId);
+              }}
+            >
+              Delete Character
+            </button>
+          </div>
+        </Modal>
       )}
       <button className="btn-secondary btn-secondary--sm profile-bar__leave-trigger" onClick={() => setConfirmingLeave(true)}>
         Leave Guild

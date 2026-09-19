@@ -102,6 +102,7 @@ export default function App() {
   const [character, setCharacter] = useState(null);
   const [guildName, setGuildName] = useState(null);
   const [isGuildOwner, setIsGuildOwner] = useState(false);
+  const [isGuildOfficer, setIsGuildOfficer] = useState(false);
   const [canClaimLeadership, setCanClaimLeadership] = useState(false);
   const [claimingLeadership, setClaimingLeadership] = useState(false);
   const [characters, setCharacters] = useState([]);
@@ -115,6 +116,7 @@ export default function App() {
     setCharacter(ctx.character);
     setGuildName(ctx.guild?.name ?? null);
     setIsGuildOwner(ctx.guild?.isOwner ?? false);
+    setIsGuildOfficer(ctx.guild?.isOfficer ?? false);
     setCanClaimLeadership(ctx.guild?.canClaimLeadership ?? false);
     setCharacters(ctx.characters ?? []);
     setWishlist(ctx.character.build ?? {});
@@ -188,6 +190,18 @@ export default function App() {
     setDataLoaded(true);
   }
 
+  async function deleteCharacter(characterId) {
+    setDataLoaded(false);
+    const res = await fetch("/api/character", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ characterId }),
+    });
+    const data = await res.json();
+    if (res.ok) applyContext(data);
+    setDataLoaded(true);
+  }
+
   async function leaveGuild() {
     setDataLoaded(false);
     await fetch("/api/character/leave", { method: "POST" });
@@ -209,7 +223,7 @@ export default function App() {
     const data = await res.json();
     if (!data.character) return;
     applyContext(data);
-    if (!data.guild?.isOwner) setTab((t) => (t === "members" ? "database" : t));
+    if (!data.guild?.isOwner && !data.guild?.isOfficer) setTab((t) => (t === "members" ? "database" : t));
   }
 
   // The old leader stays owner_discord_id right up until this call
@@ -347,7 +361,7 @@ export default function App() {
     { id: "plan", label: "Farm Plan" },
     { id: "dkp", label: "DKP" },
     { id: "parties", label: "Parties" },
-    ...(isGuildOwner ? [{ id: "members", label: "Members" }] : []),
+    ...(isGuildOwner || isGuildOfficer ? [{ id: "members", label: "Members" }] : []),
   ];
 
   return (
@@ -367,6 +381,7 @@ export default function App() {
             characters={characters}
             onSwitch={switchCharacter}
             onCreate={createCharacter}
+            onDeleteCharacter={deleteCharacter}
             onLeaveGuild={leaveGuild}
             isSiteAdmin={isSiteAdmin}
           />
@@ -534,9 +549,9 @@ export default function App() {
         </div>
       )}
 
-      {tab === "members" && isGuildOwner && (
+      {tab === "members" && (isGuildOwner || isGuildOfficer) && (
         <div className="layout">
-          <GuildMembers guildName={guildName} onDeleteGuild={deleteGuild} onOwnerChanged={refreshAfterOwnerChange} />
+          <GuildMembers isOwner={isGuildOwner} guildName={guildName} onDeleteGuild={deleteGuild} onOwnerChanged={refreshAfterOwnerChange} />
         </div>
       )}
 

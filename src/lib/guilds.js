@@ -117,6 +117,30 @@ export async function getOrCreateCharacter({ discordId, guildId, name }) {
   return created.rows[0];
 }
 
+/* Deletes ONE of the signed-in user's own characters (an alt). discordId
+   is in the WHERE clause, so a character id from anyone else's account
+   matches nothing. The last character in a guild can't be deleted this
+   way - "Leave Guild" is the path that empties a guild (and hands off
+   leadership). The row lock keeps two simultaneous deletes from each
+   seeing the other's character still there and removing both. Returns the
+   oldest remaining character's id, for the caller to switch to. */
+export async function deleteCharacter({ discordId, characterId }) {
+  return withTransaction(async (client) => {
+    const target = await client.query(`SELECT guild_id FROM characters WHERE id = $1 AND discord_id = $2`, [characterId, discordId]);
+    if (target.rows.length === 0) throw new HttpError(404, "Character not found.");
+    const guildId = target.rows[0].guild_id;
+    const mine = await client.query(
+      `SELECT id FROM characters WHERE discord_id = $1 AND guild_id = $2 ORDER BY created_at FOR UPDATE`,
+      [discordId, guildId]
+    );
+    if (mine.rows.length < 2) {
+      throw new HttpError(400, "You can't delete your only character in this guild - use Leave Guild instead.");
+    }
+    await client.query(`DELETE FROM characters WHERE id = $1 AND discord_id = $2`, [characterId, discordId]);
+    return { nextCharacterId: mine.rows.find((r) => r.id !== characterId).id };
+  });
+}
+
 async function listCharacters({ discordId, guildId }) {
   const res = await query(
     `SELECT id, name FROM characters WHERE discord_id = $1 AND guild_id = $2 ORDER BY created_at`,
@@ -448,21 +472,23 @@ export async function getItemOwners({ guildId, itemId }) {
   return res.rows;
 }
 
-/* Owner-only roster: one row per Discord account with characters in
-   this guild, each carrying its own character list (so the owner can
-   see who has alts before kicking) and whether they're the current
-   owner (to badge them and hide the pointless "promote" action). */
+/* Guild roster for the Members tab (leader and officers): one row per
+   CHARACTER, with the Discord account it belongs to alongside, since
+   guilds think in characters, not accounts. isOwner/isOfficer describe
+   the account, so the UI can badge them and hide actions that don't
+   apply. */
 export async function listGuildMembers({ guildId }) {
   const res = await query(
-    `SELECT u.discord_id AS "discordId", u.username,
+    `SELECT c.id AS "characterId", c.name AS "characterName",
+            u.discord_id AS "discordId", u.username,
             (u.discord_id = g.owner_discord_id) AS "isOwner",
-            json_agg(json_build_object('id', c.id, 'name', c.name) ORDER BY c.name) AS characters
+            COALESCE(gm.is_officer, false) AS "isOfficer"
      FROM characters c
      JOIN users u ON u.discord_id = c.discord_id
-     JOIN guilds g ON g.id = $1
+     JOIN guilds g ON g.id = c.guild_id
+     LEFT JOIN guild_memberships gm ON gm.guild_id = c.guild_id AND gm.discord_id = c.discord_id
      WHERE c.guild_id = $1
-     GROUP BY u.discord_id, u.username, g.owner_discord_id
-     ORDER BY u.username`,
+     ORDER BY lower(c.name), c.name`,
     [guildId]
   );
   return res.rows;
@@ -485,6 +511,41 @@ export async function kickMember({ guildId, targetDiscordId, requesterDiscordId 
   }
   await query(`DELETE FROM characters WHERE discord_id = $1 AND guild_id = $2`, [targetDiscordId, guildId]);
   await clearOfficer({ guildId, discordId: targetDiscordId });
+}
+
+/* Removes ONE character from this guild (leader or officer). Officers
+   can only remove plain members' characters (or their own alts); only the
+   leader can remove an officer's or the leader's. Removing an account's
+   LAST character is a full kick, so its officer flag is dropped too
+   (DKP is kept). Your own last character is refused - that's Leave
+   Guild. Scoped to this guild, so a character id from another guild
+   matches nothing; the row lock stops two removals from racing. */
+export async function kickCharacter({ guildId, characterId, requesterDiscordId }) {
+  const guild = await getGuildById(guildId);
+  if (!guild) throw new HttpError(404, "Guild not found.");
+  const requesterRole = await getMemberRole({ guildId, discordId: requesterDiscordId });
+  if (requesterRole === "member") {
+    throw new HttpError(403, "Only officers and the guild leader can remove characters.");
+  }
+  const { targetDiscordId, remaining } = await withTransaction(async (client) => {
+    const target = await client.query(`SELECT discord_id FROM characters WHERE id = $1 AND guild_id = $2`, [characterId, guildId]);
+    if (target.rows.length === 0) throw new HttpError(404, "Character not found.");
+    const targetDiscordId = target.rows[0].discord_id;
+    const isSelf = targetDiscordId === requesterDiscordId;
+    if (!isSelf && requesterRole !== "leader") {
+      const om = await client.query(`SELECT is_officer FROM guild_memberships WHERE guild_id = $1 AND discord_id = $2`, [guildId, targetDiscordId]);
+      if (guild.owner_discord_id === targetDiscordId || om.rows[0]?.is_officer) {
+        throw new HttpError(403, "Only the guild leader can remove an officer's or the leader's characters.");
+      }
+    }
+    const mine = await client.query(`SELECT id FROM characters WHERE discord_id = $1 AND guild_id = $2 FOR UPDATE`, [targetDiscordId, guildId]);
+    if (isSelf && mine.rows.length < 2) {
+      throw new HttpError(400, "That's your only character here - use Leave Guild instead.");
+    }
+    await client.query(`DELETE FROM characters WHERE id = $1 AND guild_id = $2`, [characterId, guildId]);
+    return { targetDiscordId, remaining: mine.rows.length - 1 };
+  });
+  if (remaining === 0) await clearOfficer({ guildId, discordId: targetDiscordId });
 }
 
 /* Hands the guild off to another member, e.g. the owner is leaving
@@ -618,7 +679,10 @@ export async function getCharacterContext({ discordId, characterId }) {
     // client knows whether to show the "Claim Leadership" prompt at
     // all, never trusted as authorization on its own.
     let canClaimLeadership = false;
+    let isOfficer = false;
     if (!isOwner) {
+      const gm = await query(`SELECT is_officer FROM guild_memberships WHERE guild_id = $1 AND discord_id = $2`, [guildRow.id, discordId]);
+      isOfficer = gm.rows[0]?.is_officer === true;
       const leaderRes = await query(`SELECT last_login_at AS "lastLoginAt" FROM users WHERE discord_id = $1`, [guildRow.owner_discord_id]);
       const lastLoginAt = leaderRes.rows[0]?.lastLoginAt;
       if (lastLoginAt) {
@@ -628,7 +692,7 @@ export async function getCharacterContext({ discordId, characterId }) {
     }
     // isOwner, not the raw owner_discord_id, is what the client gets -
     // no reason to expose another account's id to every guildmate.
-    guild = { id: guildRow.id, name: guildRow.name, isOwner, canClaimLeadership };
+    guild = { id: guildRow.id, name: guildRow.name, isOwner, isOfficer, canClaimLeadership };
   }
   return { character, guild, characters };
 }

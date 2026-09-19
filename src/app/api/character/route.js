@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDiscordId, requireActiveGuild, errorResponse } from "@/lib/apiHelpers";
 import { getActiveCharacter, setActiveCharacter } from "@/lib/guildSession";
-import { saveCharacterData, getOrCreateCharacter, getCharacterContext } from "@/lib/guilds";
+import { saveCharacterData, getOrCreateCharacter, getCharacterContext, deleteCharacter } from "@/lib/guilds";
 import { isAdmin } from "@/lib/admin";
 
 // GET /api/character - the signed-in user's currently active
@@ -59,6 +59,25 @@ export async function PUT(request) {
       wishlist: body.wishlist ?? {},
     });
     return NextResponse.json({ ok: true });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
+
+// DELETE /api/character { characterId } - deletes one of the signed-in
+// user's own alts (never someone else's, never their last one in the
+// guild - see deleteCharacter). If it was the active character, the
+// cookie moves to another of theirs; the response is that active
+// character's context, same shape as POST/switch.
+export async function DELETE(request) {
+  try {
+    const discordId = await requireDiscordId();
+    const active = await requireActiveGuild();
+    const body = await request.json();
+    const { nextCharacterId } = await deleteCharacter({ discordId, characterId: body.characterId });
+    const activeId = active.characterId === body.characterId ? nextCharacterId : active.characterId;
+    if (activeId !== active.characterId) await setActiveCharacter({ guildId: active.guildId, characterId: activeId });
+    return NextResponse.json(await getCharacterContext({ discordId, characterId: activeId }));
   } catch (e) {
     return errorResponse(e);
   }
