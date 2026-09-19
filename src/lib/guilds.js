@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { query } from "@/lib/db";
+import { query, withTransaction } from "@/lib/db";
 
 const PIN_ATTEMPT_LIMIT = 5;
 const PIN_GUILD_ATTEMPT_LIMIT = 30;
@@ -204,27 +204,31 @@ async function ensureGuildMembership({ guildId, discordId }) {
 }
 
 // Leader-only. Promoting is capped at OFFICER_CAP, enforced here (not
-// just client-side) so concurrent promotions can't exceed it.
+// just client-side). The guild row is locked for the count-then-update so
+// concurrent promotions queue up instead of both seeing a free slot.
 export async function setOfficer({ guildId, targetDiscordId, requesterDiscordId, makeOfficer }) {
   const guild = await getGuildById(guildId);
   if (!guild) throw new HttpError(404, "Guild not found.");
   if (guild.owner_discord_id !== requesterDiscordId) {
     throw new HttpError(403, "Only the guild leader can assign officers.");
   }
-  if (makeOfficer) {
-    const countRes = await query(
-      `SELECT count(*)::int AS n FROM guild_memberships WHERE guild_id = $1 AND is_officer = true`,
-      [guildId]
-    );
-    if (countRes.rows[0].n >= OFFICER_CAP) {
-      throw new HttpError(400, `Officer slots are full (${OFFICER_CAP}/${OFFICER_CAP}).`);
-    }
-  }
   await ensureGuildMembership({ guildId, discordId: targetDiscordId });
-  await query(
-    `UPDATE guild_memberships SET is_officer = $1 WHERE guild_id = $2 AND discord_id = $3`,
-    [!!makeOfficer, guildId, targetDiscordId]
-  );
+  await withTransaction(async (client) => {
+    await client.query(`SELECT 1 FROM guilds WHERE id = $1 FOR UPDATE`, [guildId]);
+    if (makeOfficer) {
+      const countRes = await client.query(
+        `SELECT count(*)::int AS n FROM guild_memberships WHERE guild_id = $1 AND is_officer = true AND discord_id <> $2`,
+        [guildId, targetDiscordId]
+      );
+      if (countRes.rows[0].n >= OFFICER_CAP) {
+        throw new HttpError(400, `Officer slots are full (${OFFICER_CAP}/${OFFICER_CAP}).`);
+      }
+    }
+    await client.query(
+      `UPDATE guild_memberships SET is_officer = $1 WHERE guild_id = $2 AND discord_id = $3`,
+      [!!makeOfficer, guildId, targetDiscordId]
+    );
+  });
 }
 
 // Midnight UTC of the most recent occurrence of `weekday` (0=Sunday..

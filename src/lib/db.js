@@ -14,12 +14,10 @@ function getPool() {
   if (!globalThis.__pgPool) {
     globalThis.__pgPool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      // Supabase/Neon terminate TLS with certs that Node's default
-      // trust store sometimes can't chase down in serverless
-      // environments; rejectUnauthorized:false is the standard
-      // workaround both providers document. Not needed for a plain
-      // local Postgres without sslmode=require in the URL.
-      ssl: process.env.DATABASE_URL.includes("sslmode=require") ? { rejectUnauthorized: false } : undefined,
+      // Verify the server certificate (Neon's is publicly trusted, so
+      // Node's default trust store is enough). Only used when the URL asks
+      // for TLS; a plain local Postgres stays unencrypted.
+      ssl: process.env.DATABASE_URL.includes("sslmode=require") ? { rejectUnauthorized: true } : undefined,
     });
   }
   return globalThis.__pgPool;
@@ -27,6 +25,23 @@ function getPool() {
 
 export function query(text, params) {
   return getPool().query(text, params);
+}
+
+// Runs fn(client) between BEGIN/COMMIT on one connection, rolling back
+// if it throws - for read-then-write checks that must not interleave.
+export async function withTransaction(fn) {
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 // Only called on a real Discord OAuth sign-in (see auth.js's jwt
